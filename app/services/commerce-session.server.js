@@ -66,8 +66,8 @@ export function applyCheckout(session, checkoutResult) {
   return session;
 }
 
-export function buildClaudeMessages(session) {
-  const commerceContext = {
+export function getCommerceContext(session) {
+  return {
     intent: session.intent,
     catalogResults: session.catalogResults,
     selectedProduct: session.selectedProduct,
@@ -78,14 +78,6 @@ export function buildClaudeMessages(session) {
     buyerContext: session.buyerContext,
     pendingBusinessMessages: session.pendingBusinessMessages
   };
-
-  return [
-    ...session.messages,
-    {
-      role: 'user',
-      content: `Commerce session context:\n${JSON.stringify(commerceContext)}`
-    }
-  ];
 }
 
 function formatMessages(messages) {
@@ -131,5 +123,5 @@ export default {
   applyCatalogResults,
   applyCartState,
   applyCheckout,
-  buildClaudeMessages
+  getCommerceContext
 };

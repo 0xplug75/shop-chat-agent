@@ -15,7 +15,7 @@ import {
   applyCatalogResults,
   applyCartState,
   applyCheckout,
-  buildClaudeMessages
+  getCommerceContext
 } from "../services/commerce-session.server";
 import { createIntentRouter, INTENT_TYPES } from "../services/intent-router.server";
 import { createCatalogAdapter } from "../services/catalog-adapter.server";
@@ -194,7 +194,7 @@ async function handleChatSession({
       productsToDisplay
     });
 
-    let conversationHistory = buildClaudeMessages(commerceSession);
+    let conversationHistory = commerceSession.messages;
 
     // Execute the conversation stream
     let finalMessage = { role: 'user', content: userMessage };
@@ -204,7 +204,8 @@ async function handleChatSession({
         {
           messages: conversationHistory,
           promptType,
-          tools: mcpClient.tools
+          tools: mcpClient.tools,
+          commerceContext: getCommerceContext(commerceSession)
         },
         {
           // Handle text chunks
@@ -296,11 +297,17 @@ async function handleChatSession({
     // Signal end of turn
     stream.sendMessage({ type: 'end_turn' });
 
-    // Send product results if available
-    if (productsToDisplay.length > 0) {
+    // Send product results if available. The commerce-intent pre-fetch and
+    // Claude's own tool call can both populate this list for the same
+    // search, so de-dupe by product id before rendering cards.
+    const uniqueProducts = Array.from(
+      new Map(productsToDisplay.map((product) => [product.id || product.product_id, product])).values()
+    );
+
+    if (uniqueProducts.length > 0) {
       stream.sendMessage({
         type: 'product_results',
-        products: productsToDisplay
+        products: uniqueProducts
       });
     }
   } catch (error) {

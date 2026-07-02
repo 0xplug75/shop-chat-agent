@@ -30,10 +30,11 @@ export function createClaudeService(apiKey = process.env.CLAUDE_API_KEY) {
   const streamConversation = async ({
     messages,
     promptType = AppConfig.api.defaultPromptType,
-    tools
+    tools,
+    commerceContext
   }, streamHandlers) => {
     // Get system prompt from configuration or use default
-    const systemInstruction = getSystemPrompt(promptType);
+    const systemInstruction = buildSystemInstruction(promptType, commerceContext);
 
     // Create stream
     const stream = await anthropic.messages.stream({
@@ -80,6 +81,22 @@ export function createClaudeService(apiKey = process.env.CLAUDE_API_KEY) {
   const getSystemPrompt = (promptType) => {
     return systemPrompts.systemPrompts[promptType]?.content ||
       systemPrompts.systemPrompts[AppConfig.api.defaultPromptType].content;
+  };
+
+  /**
+   * Builds the full system instruction, grounding Claude in the current
+   * commerce session state without adding it as a conversation turn
+   * (the Messages API rejects consecutive same-role messages).
+   * @param {string} promptType - The prompt type to retrieve
+   * @param {Object} [commerceContext] - Current commerce session state
+   * @returns {string} The system instruction sent to Claude
+   */
+  const buildSystemInstruction = (promptType, commerceContext) => {
+    const systemPrompt = getSystemPrompt(promptType);
+
+    if (!commerceContext) return systemPrompt;
+
+    return `${systemPrompt}\n\nCommerce session context (internal, factual - do not repeat as raw JSON to the shopper):\n${JSON.stringify(commerceContext)}`;
   };
 
   return {
