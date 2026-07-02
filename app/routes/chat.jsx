@@ -8,6 +8,20 @@ import AppConfig from "../services/config.server";
 import { createSseStream } from "../services/streaming.server";
 import { createClaudeService } from "../services/claude.server";
 import { createToolService } from "../services/tool.server";
+import {
+  loadOrCreateCommerceSession,
+  appendUserMessage,
+  applyIntent,
+  applyCatalogResults,
+  applyCartState,
+  applyCheckout,
+  buildClaudeMessages
+} from "../services/commerce-session.server";
+import { createIntentRouter, INTENT_TYPES } from "../services/intent-router.server";
+import { createCatalogAdapter } from "../services/catalog-adapter.server";
+import { createPolicyAdapter } from "../services/policy-adapter.server";
+import { createCartAdapter } from "../services/cart-adapter.server";
+import { createCheckoutAdapter } from "../services/checkout-adapter.server";
 
 
 /**
@@ -122,11 +136,13 @@ async function handleChatSession({
   // Initialize services
   const claudeService = createClaudeService();
   const toolService = createToolService();
+  const intentRouter = createIntentRouter();
 
   // Initialize MCP client
   const shopId = request.headers.get("X-Shopify-Shop-Id");
   const shopDomain = request.headers.get("Origin");
-  const { mcpApiUrl } = await getCustomerAccountUrls(shopDomain, conversationId);
+  const customerAccountUrls = await getCustomerAccountUrls(shopDomain, conversationId);
+  const mcpApiUrl = customerAccountUrls?.mcpApiUrl;
 
   const mcpClient = new MCPClient(
     shopDomain,
@@ -152,29 +168,33 @@ async function handleChatSession({
       console.warn('Failed to connect to MCP servers, continuing without tools:', error.message);
     }
 
-    // Prepare conversation state
-    let conversationHistory = [];
-    let productsToDisplay = [];
-
-    // Save user message to the database
-    await saveMessage(conversationId, 'user', userMessage);
-
-    // Fetch all messages from the database for this conversation
-    const dbMessages = await getConversationHistory(conversationId);
-
-    // Format messages for Claude API
-    conversationHistory = dbMessages.map(dbMessage => {
-      let content;
-      try {
-        content = JSON.parse(dbMessage.content);
-      } catch (e) {
-        content = dbMessage.content;
-      }
-      return {
-        role: dbMessage.role,
-        content
-      };
+    const commerceSession = await loadOrCreateCommerceSession({
+      sessionId: conversationId,
+      userMessage
     });
+
+    await appendUserMessage(commerceSession, userMessage);
+
+    const intent = intentRouter.route({ message: userMessage, session: commerceSession });
+    applyIntent(commerceSession, intent);
+
+    const adapters = {
+      catalog: createCatalogAdapter(mcpClient),
+      policy: createPolicyAdapter(mcpClient),
+      cart: createCartAdapter(mcpClient),
+      checkout: createCheckoutAdapter()
+    };
+
+    let productsToDisplay = [];
+    await runCommerceIntent({
+      intent,
+      userMessage,
+      commerceSession,
+      adapters,
+      productsToDisplay
+    });
+
+    let conversationHistory = buildClaudeMessages(commerceSession);
 
     // Execute the conversation stream
     let finalMessage = { role: 'user', content: userMessage };
@@ -246,6 +266,14 @@ async function handleChatSession({
                 productsToDisplay,
                 conversationId
               );
+
+              applyCommerceToolResult({
+                commerceSession,
+                toolName,
+                toolUseResponse,
+                toolService,
+                checkoutAdapter: adapters.checkout
+              });
             }
 
             // Signal new message to client
@@ -278,6 +306,102 @@ async function handleChatSession({
   } catch (error) {
     // The streaming handler takes care of error handling
     throw error;
+  }
+}
+
+async function runCommerceIntent({
+  intent,
+  userMessage,
+  commerceSession,
+  adapters,
+  productsToDisplay
+}) {
+  try {
+    if (intent.type === INTENT_TYPES.PRODUCT_DISCOVERY || intent.type === INTENT_TYPES.PRODUCT_DETAIL) {
+      const catalogResult = await adapters.catalog.searchCatalog({
+        query: userMessage,
+        context: commerceSession.buyerContext
+      });
+
+      applyCatalogResults(commerceSession, catalogResult.products);
+      productsToDisplay.push(...catalogResult.products);
+      return;
+    }
+
+    if (intent.type === INTENT_TYPES.POLICY_QUESTION) {
+      const policyResult = await adapters.policy.searchPolicies({
+        query: userMessage,
+        context: commerceSession.buyerContext
+      });
+
+      commerceSession.pendingBusinessMessages.push({
+        outcome: 'policy_result',
+        rawMessage: extractToolText(policyResult.response),
+        assistantMessage: 'Shopify returned policy or FAQ information for this question.'
+      });
+      return;
+    }
+
+    if (intent.type === INTENT_TYPES.CHECKOUT_ACTION) {
+      const checkoutResult = await adapters.checkout.createCheckoutFromCart({
+        cartId: commerceSession.cartId,
+        cartSnapshot: commerceSession.cartSnapshot
+      });
+
+      applyCheckout(commerceSession, checkoutResult);
+    }
+  } catch (error) {
+    console.warn(`Commerce intent ${intent.type} could not be preprocessed:`, error.message);
+    commerceSession.pendingBusinessMessages.push({
+      outcome: 'adapter_error',
+      rawMessage: error.message,
+      assistantMessage: 'The commerce layer could not complete the pre-processing step. Use available Shopify tool results before making claims.'
+    });
+  }
+}
+
+function applyCommerceToolResult({
+  commerceSession,
+  toolName,
+  toolUseResponse,
+  toolService,
+  checkoutAdapter
+}) {
+  if (toolName === AppConfig.tools.productSearchName) {
+    applyCatalogResults(commerceSession, toolService.processProductSearchResult(toolUseResponse));
+    return;
+  }
+
+  if (toolName === AppConfig.tools.getCartName || toolName === AppConfig.tools.updateCartName) {
+    applyCartState(commerceSession, {
+      response: toolUseResponse,
+      businessMessage: {
+        outcome: 'cart_tool_result',
+        rawMessage: extractToolText(toolUseResponse),
+        assistantMessage: 'Shopify returned updated cart information.'
+      }
+    });
+
+    applyCheckout(commerceSession, {
+      checkoutUrl: checkoutAdapter.getCheckoutUrlFromCartOrCheckout(toolUseResponse)
+    });
+  }
+}
+
+function extractToolText(toolResponse) {
+  if (!toolResponse) return '';
+  if (typeof toolResponse === 'string') return toolResponse;
+  if (Array.isArray(toolResponse.content)) {
+    return toolResponse.content
+      .map((item) => item?.text || item?.content || '')
+      .filter(Boolean)
+      .join('\n');
+  }
+
+  try {
+    return JSON.stringify(toolResponse);
+  } catch (_error) {
+    return String(toolResponse);
   }
 }
 

@@ -1,0 +1,49 @@
+import AppConfig from "./config.server";
+import { createToolService } from "./tool.server";
+
+/**
+ * Catalog Adapter
+ * Wraps Shopify MCP catalog tools and normalizes product results for IntentCart.
+ */
+export function createCatalogAdapter(mcpClient) {
+  const toolService = createToolService();
+
+  const searchCatalog = async ({ query, context = {} }) => {
+    const response = await mcpClient.callTool(AppConfig.tools.productSearchName, {
+      query,
+      ...context.catalogFilters
+    });
+
+    return {
+      toolName: AppConfig.tools.productSearchName,
+      response,
+      products: response.error ? [] : toolService.processProductSearchResult(response)
+    };
+  };
+
+  const lookupCatalog = async ({ ids = [], context = {} }) => {
+    const query = ids.filter(Boolean).join(' ');
+    return searchCatalog({ query, context });
+  };
+
+  const getProduct = async ({ id, selected, context = {} }) => {
+    const query = selected?.title || id;
+    const result = await searchCatalog({ query, context });
+    const product = result.products.find((item) => item.id === id || item.product_id === id) || result.products[0] || null;
+
+    return {
+      ...result,
+      product
+    };
+  };
+
+  return {
+    searchCatalog,
+    lookupCatalog,
+    getProduct
+  };
+}
+
+export default {
+  createCatalogAdapter
+};
