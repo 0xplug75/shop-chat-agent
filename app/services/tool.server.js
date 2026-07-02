@@ -94,19 +94,37 @@ export function createToolService() {
    * @returns {Object} Formatted product data
    */
   const formatProductData = (product) => {
+    const variants = Array.isArray(product.variants)
+      ? product.variants.map((variant) => ({
+          id: variant.id || variant.variant_id || '',
+          title: variant.title || variant.name || '',
+          price: variant.price || '',
+          currency: variant.currency || product.price_range?.currency || '',
+          available: variant.available ?? variant.available_for_sale ?? null,
+          selected_options: variant.selected_options || variant.options || []
+        }))
+      : [];
+
     const price = product.price_range
       ? `${product.price_range.currency} ${product.price_range.min}`
-      : (product.variants && product.variants.length > 0
-        ? `${product.variants[0].currency} ${product.variants[0].price}`
+      : (variants.length > 0
+        ? `${variants[0].currency} ${variants[0].price}`.trim()
         : 'Price not available');
 
     return {
       id: product.product_id || `product-${Math.random().toString(36).substring(7)}`,
+      product_id: product.product_id || product.id || '',
       title: product.title || 'Product',
       price: price,
+      price_range: product.price_range || null,
       image_url: product.image_url || '',
       description: product.description || '',
-      url: product.url || ''
+      url: product.url || '',
+      options: product.options || [],
+      variants,
+      available: product.available ?? product.available_for_sale ?? null,
+      rating: product.rating || null,
+      tags: product.tags || []
     };
   };
 

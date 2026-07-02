@@ -8,14 +8,36 @@
     </svg>
   </div>
 
+  <div class="shop-ai-choice-panel" aria-hidden="true">
+    <div class="shop-ai-choice-header">
+      <span class="shop-ai-choice-kicker">Shopping assistant</span>
+      <button class="shop-ai-choice-close" aria-label="Close">✕</button>
+    </div>
+    <h2>How do you want to shop?</h2>
+    <p>Browse the store yourself, or describe what you need and let the agent pull matching products into the chat.</p>
+    <div class="shop-ai-choice-actions">
+      <button class="shop-ai-start-chat" type="button">Shop with chat</button>
+      <button class="shop-ai-continue-browsing" type="button">Continue browsing</button>
+    </div>
+  </div>
+
   <div class="shop-ai-chat-window">
     <div class="shop-ai-chat-header">
-      <div>{{ 'chat.title' | t }}</div>
+      <div>
+        <span class="shop-ai-chat-eyebrow">Chat mode</span>
+        <strong>{{ 'chat.title' | t }}</strong>
+      </div>
       <button class="shop-ai-chat-close">✕</button>
     </div>
 
     <div class="shop-ai-chat-messages">
       <!-- Messages will be added here by JavaScript -->
+    </div>
+
+    <div class="shop-ai-suggestions" aria-label="Suggested shopping prompts">
+      <button type="button" data-shop-ai-prompt="I need help finding the right product for me. Ask me what matters and recommend the best options.">Find the right product</button>
+      <button type="button" data-shop-ai-prompt="Compare the best products for my needs and explain which one I should choose.">Compare options</button>
+      <button type="button" data-shop-ai-prompt="Show me products that are available now and help me add the best one to cart.">Ready to buy</button>
     </div>
 
     <div class="shop-ai-chat-input">
@@ -54,7 +76,7 @@
       "type": "text",
       "id": "welcome_message",
       "label": "Welcome Message",
-      "default": "👋 Hi there! How can I help you today?"
+      "default": "Tell me what you are shopping for. I will search the catalog, compare the best matches, and help you add the right product to cart."
     },
     {
       "type": "select",
@@ -66,11 +88,15 @@
           "label": "Standard Assistant"
         },
         {
+          "value": "agenticBuyingAssistant",
+          "label": "Agentic Buying Assistant"
+        },
+        {
           "value": "enthusiasticAssistant",
           "label": "Enthusiastic Assistant"
         }
       ],
-      "default": "standardAssistant"
+      "default": "agenticBuyingAssistant"
     }
   ]
 }

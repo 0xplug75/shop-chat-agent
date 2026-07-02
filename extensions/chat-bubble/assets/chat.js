@@ -29,11 +29,16 @@
         this.elements = {
           container: container,
           chatBubble: container.querySelector('.shop-ai-chat-bubble'),
+          choicePanel: container.querySelector('.shop-ai-choice-panel'),
+          choiceCloseButton: container.querySelector('.shop-ai-choice-close'),
+          startChatButton: container.querySelector('.shop-ai-start-chat'),
+          continueBrowsingButton: container.querySelector('.shop-ai-continue-browsing'),
           chatWindow: container.querySelector('.shop-ai-chat-window'),
           closeButton: container.querySelector('.shop-ai-chat-close'),
           chatInput: container.querySelector('.shop-ai-chat-input input'),
           sendButton: container.querySelector('.shop-ai-chat-send'),
-          messagesContainer: container.querySelector('.shop-ai-chat-messages')
+          messagesContainer: container.querySelector('.shop-ai-chat-messages'),
+          promptButtons: container.querySelectorAll('[data-shop-ai-prompt]')
         };
 
         // Detect mobile device
@@ -52,10 +57,24 @@
        * Set up all event listeners for UI interactions
        */
       setupEventListeners: function() {
-        const { chatBubble, closeButton, chatInput, sendButton, messagesContainer } = this.elements;
+        const {
+          chatBubble,
+          choiceCloseButton,
+          startChatButton,
+          continueBrowsingButton,
+          closeButton,
+          chatInput,
+          sendButton,
+          messagesContainer,
+          promptButtons
+        } = this.elements;
 
-        // Toggle chat window visibility
-        chatBubble.addEventListener('click', () => this.toggleChatWindow());
+        // Open the shopping choice panel first, then let the shopper choose chat mode.
+        chatBubble.addEventListener('click', () => this.openChoicePanel());
+
+        choiceCloseButton?.addEventListener('click', () => this.closeChoicePanel());
+        continueBrowsingButton?.addEventListener('click', () => this.closeChoicePanel());
+        startChatButton?.addEventListener('click', () => this.openChatMode());
 
         // Close chat window
         closeButton.addEventListener('click', () => this.closeChatWindow());
@@ -85,6 +104,13 @@
           }
         });
 
+        promptButtons.forEach((button) => {
+          button.addEventListener('click', () => {
+            chatInput.value = button.dataset.shopAiPrompt || button.textContent.trim();
+            ShopAIChat.Message.send(chatInput, messagesContainer);
+          });
+        });
+
         // Handle window resize to adjust scrolling
         window.addEventListener('resize', () => this.scrollToBottom());
 
@@ -111,27 +137,52 @@
       },
 
       /**
-       * Toggle chat window visibility
+       * Open the initial shopping choice panel
        */
-      toggleChatWindow: function() {
+      openChoicePanel: function() {
+        const { choicePanel, chatWindow } = this.elements;
+        if (!choicePanel) {
+          this.openChatMode();
+          return;
+        }
+
+        if (chatWindow?.classList.contains('active')) {
+          this.closeChatWindow();
+          return;
+        }
+
+        choicePanel.classList.add('active');
+        choicePanel.setAttribute('aria-hidden', 'false');
+      },
+
+      /**
+       * Close the initial shopping choice panel
+       */
+      closeChoicePanel: function() {
+        const { choicePanel } = this.elements;
+        if (!choicePanel) return;
+
+        choicePanel.classList.remove('active');
+        choicePanel.setAttribute('aria-hidden', 'true');
+      },
+
+      /**
+       * Open the full chat buying mode
+       */
+      openChatMode: function() {
         const { chatWindow, chatInput } = this.elements;
 
-        chatWindow.classList.toggle('active');
+        this.closeChoicePanel();
+        chatWindow.classList.add('active');
+        document.body.classList.add('shop-ai-chat-open');
 
-        if (chatWindow.classList.contains('active')) {
-          // On mobile, prevent body scrolling and delay focus
-          if (this.isMobile) {
-            document.body.classList.add('shop-ai-chat-open');
-            setTimeout(() => chatInput.focus(), 500);
-          } else {
-            chatInput.focus();
-          }
-          // Always scroll messages to bottom when opening
-          this.scrollToBottom();
+        if (this.isMobile) {
+          setTimeout(() => chatInput.focus(), 500);
         } else {
-          // Remove body class when closing
-          document.body.classList.remove('shop-ai-chat-open');
+          chatInput.focus();
         }
+
+        this.scrollToBottom();
       },
 
       /**
@@ -141,11 +192,11 @@
         const { chatWindow, chatInput } = this.elements;
 
         chatWindow.classList.remove('active');
+        document.body.classList.remove('shop-ai-chat-open');
 
         // On mobile, blur input to hide keyboard and enable body scrolling
         if (this.isMobile) {
           chatInput.blur();
-          document.body.classList.remove('shop-ai-chat-open');
         }
       },
 
@@ -199,7 +250,7 @@
         // Add a header for the product results
         const header = document.createElement('div');
         header.classList.add('shop-ai-product-header');
-        header.innerHTML = '<h4>Top Matching Products</h4>';
+        header.innerHTML = '<h4>Recommended from the catalog</h4>';
         productSection.appendChild(header);
 
         // Create the product grid container
@@ -874,10 +925,30 @@
         price.textContent = product.price;
         info.appendChild(price);
 
+        if (product.description) {
+          const description = document.createElement('p');
+          description.classList.add('shop-ai-product-description');
+          description.textContent = product.description;
+          info.appendChild(description);
+        }
+
+        const optionText = ShopAIChat.Product.formatOptions(product);
+        if (optionText) {
+          const options = document.createElement('p');
+          options.classList.add('shop-ai-product-options');
+          options.textContent = optionText;
+          info.appendChild(options);
+        }
+
+        const availability = document.createElement('p');
+        availability.classList.add('shop-ai-product-availability');
+        availability.textContent = product.available === false ? 'Check availability' : 'Available in catalog';
+        info.appendChild(availability);
+
         // Add add-to-cart button
         const button = document.createElement('button');
         button.classList.add('shop-ai-add-to-cart');
-        button.textContent = 'Add to Cart';
+        button.textContent = 'Choose in chat';
         button.dataset.productId = product.id;
 
         // Add click handler for the button
@@ -885,7 +956,7 @@
           // Send message to add this product to cart
           const input = document.querySelector('.shop-ai-chat-input input');
           if (input) {
-            input.value = `Add ${product.title} to my cart`;
+            input.value = `I want ${product.title}. Confirm the best variant and add it to my cart.`;
             // Trigger a click on the send button
             const sendButton = document.querySelector('.shop-ai-chat-send');
             if (sendButton) {
@@ -898,6 +969,30 @@
         card.appendChild(info);
 
         return card;
+      },
+
+      /**
+       * Format product options and variants for compact product cards
+       * @param {Object} product - Product data
+       * @returns {string} Options summary
+       */
+      formatOptions: function(product) {
+        if (Array.isArray(product.options) && product.options.length > 0) {
+          return product.options
+            .map((option) => {
+              if (typeof option === 'string') return option;
+              const values = Array.isArray(option.values) ? option.values.join(', ') : '';
+              return values ? `${option.name}: ${values}` : option.name;
+            })
+            .filter(Boolean)
+            .join(' | ');
+        }
+
+        if (Array.isArray(product.variants) && product.variants.length > 0) {
+          return `${product.variants.length} variant${product.variants.length > 1 ? 's' : ''} available`;
+        }
+
+        return '';
       }
     },
 

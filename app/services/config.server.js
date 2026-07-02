@@ -8,7 +8,7 @@ export const AppConfig = {
   api: {
     defaultModel: 'claude-sonnet-4-20250514',
     maxTokens: 2000,
-    defaultPromptType: 'standardAssistant',
+    defaultPromptType: 'agenticBuyingAssistant',
   },
 
   // Error Message Templates
