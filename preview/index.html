@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shop Chat Agent Preview</title>
+    <link rel="stylesheet" href="../extensions/chat-bubble/assets/chat.css">
+    <style>
+      body {
+        background: #f6f2ec;
+        color: #18181b;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        margin: 0;
+        min-height: 100vh;
+      }
+
+      .preview-storefront {
+        display: grid;
+        gap: 28px;
+        margin: 0 auto;
+        max-width: 1120px;
+        padding: 42px 24px 120px;
+      }
+
+      .preview-hero {
+        align-items: end;
+        background: #15151a;
+        border-radius: 0;
+        color: white;
+        display: grid;
+        min-height: 360px;
+        overflow: hidden;
+        padding: 36px;
+      }
+
+      .preview-hero h1 {
+        font-size: clamp(38px, 7vw, 84px);
+        letter-spacing: 0;
+        line-height: 0.95;
+        margin: 0;
+        max-width: 820px;
+      }
+
+      .preview-hero p {
+        color: #d4d4d8;
+        font-size: 18px;
+        line-height: 1.45;
+        margin: 18px 0 0;
+        max-width: 560px;
+      }
+
+      .preview-grid {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .preview-product {
+        background: white;
+        border: 1px solid #e2ded8;
+        border-radius: 8px;
+        min-height: 220px;
+        padding: 18px;
+      }
+
+      .preview-product-image {
+        aspect-ratio: 4 / 3;
+        background: linear-gradient(135deg, #d7c7b5, #f8f8f8);
+        border-radius: 6px;
+        margin-bottom: 14px;
+      }
+
+      .preview-product h2 {
+        font-size: 18px;
+        margin: 0 0 8px;
+      }
+
+      .preview-product p {
+        color: #5f5b55;
+        line-height: 1.45;
+        margin: 0;
+      }
+
+      @media (max-width: 720px) {
+        .preview-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .preview-hero {
+          min-height: 300px;
+          padding: 24px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="preview-storefront">
+      <section class="preview-hero">
+        <div>
+          <h1>Demo Shopify storefront</h1>
+          <p>Click the chat bubble in the bottom-right corner, choose chat mode, then send a shopping intent. The agent response and product cards are mocked for local preview.</p>
+        </div>
+      </section>
+
+      <section class="preview-grid" aria-label="Storefront products">
+        <article class="preview-product">
+          <div class="preview-product-image"></div>
+          <h2>Daily Hydration Set</h2>
+          <p>A sample product card representing the normal browsing path.</p>
+        </article>
+        <article class="preview-product">
+          <div class="preview-product-image"></div>
+          <h2>Travel Essentials</h2>
+          <p>The shopper can still browse the site without entering chat mode.</p>
+        </article>
+        <article class="preview-product">
+          <div class="preview-product-image"></div>
+          <h2>Performance Bundle</h2>
+          <p>The bubble adds the agentic buying path on top of the storefront.</p>
+        </article>
+      </section>
+    </main>
+
+    <div class="shop-ai-chat-container">
+      <div class="shop-ai-chat-bubble" style="background-color: #5046e4">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+      </div>
+
+      <div class="shop-ai-choice-panel" aria-hidden="true">
+        <div class="shop-ai-choice-header">
+          <span class="shop-ai-choice-kicker">Shopping assistant</span>
+          <button class="shop-ai-choice-close" aria-label="Close">x</button>
+        </div>
+        <h2>How do you want to shop?</h2>
+        <p>Browse the store yourself, or describe what you need and let the agent pull matching products into the chat.</p>
+        <div class="shop-ai-choice-actions">
+          <button class="shop-ai-start-chat" type="button">Shop with chat</button>
+          <button class="shop-ai-continue-browsing" type="button">Continue browsing</button>
+        </div>
+      </div>
+
+      <div class="shop-ai-chat-window">
+        <div class="shop-ai-chat-header">
+          <div>
+            <span class="shop-ai-chat-eyebrow">Chat mode</span>
+            <strong>Shop with Agent</strong>
+          </div>
+          <button class="shop-ai-chat-close">x</button>
+        </div>
+
+        <div class="shop-ai-chat-messages"></div>
+
+        <div class="shop-ai-suggestions" aria-label="Suggested shopping prompts">
+          <button type="button" data-shop-ai-prompt="I need help finding the right product for me. Ask me what matters and recommend the best options.">Find the right product</button>
+          <button type="button" data-shop-ai-prompt="Compare the best products for my needs and explain which one I should choose.">Compare options</button>
+          <button type="button" data-shop-ai-prompt="Show me products that are available now and help me add the best one to cart.">Ready to buy</button>
+        </div>
+
+        <div class="shop-ai-chat-input">
+          <input type="text" placeholder="Tell me what you are shopping for">
+          <button class="shop-ai-chat-send">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"></line>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      window.shopChatConfig = {
+        promptType: "agenticBuyingAssistant",
+        welcomeMessage: "Tell me what you are shopping for. I will search the catalog, compare the best matches, and help you add the right product to cart."
+      };
+      window.shopId = "preview-shop";
+
+      const previewProducts = [
+        {
+          id: "gid://shopify/Product/1001",
+          product_id: "gid://shopify/Product/1001",
+          title: "Daily Hydration Set",
+          price: "EUR 49.00",
+          description: "A balanced kit for someone who wants a simple daily routine with lightweight hydration.",
+          image_url: "https://cdn.shopify.com/s/files/1/0533/2089/files/placeholder-images-product-1_large.png",
+          url: "#daily-hydration-set",
+          options: [{ name: "Size", values: ["Standard", "Travel"] }],
+          variants: [{ id: "v1", title: "Standard", price: "49.00", currency: "EUR", available: true }],
+          available: true
+        },
+        {
+          id: "gid://shopify/Product/1002",
+          product_id: "gid://shopify/Product/1002",
+          title: "Performance Bundle",
+          price: "EUR 79.00",
+          description: "Best for shoppers who want a more complete routine with higher value in one bundle.",
+          image_url: "https://cdn.shopify.com/s/files/1/0533/2089/files/placeholder-images-product-2_large.png",
+          url: "#performance-bundle",
+          options: [{ name: "Color", values: ["Black", "Natural"] }],
+          variants: [{ id: "v2", title: "Black", price: "79.00", currency: "EUR", available: true }],
+          available: true
+        },
+        {
+          id: "gid://shopify/Product/1003",
+          product_id: "gid://shopify/Product/1003",
+          title: "Travel Essentials",
+          price: "EUR 32.00",
+          description: "Compact option for gifting or testing the brand before committing to a larger set.",
+          image_url: "https://cdn.shopify.com/s/files/1/0533/2089/files/placeholder-images-product-3_large.png",
+          url: "#travel-essentials",
+          options: [{ name: "Format", values: ["Mini", "Refill"] }],
+          variants: [{ id: "v3", title: "Mini", price: "32.00", currency: "EUR", available: true }],
+          available: true
+        }
+      ];
+
+      function sseEvent(payload) {
+        return "data: " + JSON.stringify(payload) + "\n\n";
+      }
+
+      window.fetch = async function previewFetch(url, options = {}) {
+        if (String(url).includes("/chat") && options.method === "POST") {
+          const stream = new ReadableStream({
+            start(controller) {
+              const encoder = new TextEncoder();
+              const events = [
+                { type: "id", conversation_id: "preview-conversation" },
+                { type: "tool_use", tool_use_message: "Calling tool: search_shop_catalog with arguments: {\"query\":\"best product for this shopper\",\"limit\":3}" },
+                { type: "new_message" },
+                { type: "chunk", chunk: "I searched the catalog and found three strong matches. " },
+                { type: "chunk", chunk: "**Daily Hydration Set** is the safest recommendation for a simple routine. **Performance Bundle** is better if you want the most complete option. **Travel Essentials** is the low-commitment choice." },
+                { type: "message_complete" },
+                { type: "end_turn" },
+                { type: "product_results", products: previewProducts }
+              ];
+
+              events.forEach((event, index) => {
+                setTimeout(() => {
+                  controller.enqueue(encoder.encode(sseEvent(event)));
+                  if (index === events.length - 1) controller.close();
+                }, 250 + index * 260);
+              });
+            }
+          });
+
+          return new Response(stream, {
+            headers: { "Content-Type": "text/event-stream" }
+          });
+        }
+
+        return new Response(JSON.stringify({ messages: [] }), {
+          headers: { "Content-Type": "application/json" }
+        });
+      };
+    </script>
+    <script src="../extensions/chat-bubble/assets/chat.js" defer></script>
+  </body>
+</html>
