@@ -10,8 +10,14 @@ export function createCatalogAdapter(mcpClient) {
 
   const searchCatalog = async ({ query, context = {} }) => {
     const response = await mcpClient.callTool(AppConfig.tools.productSearchName, {
-      query,
-      ...context.catalogFilters
+      catalog: {
+        query,
+        context: context.buyerContext,
+        filters: context.catalogFilters,
+        pagination: {
+          limit: AppConfig.tools.maxProductsToDisplay
+        }
+      }
     });
 
     return {

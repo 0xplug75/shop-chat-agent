@@ -35,6 +35,17 @@ export async function appendUserMessage(session, message) {
 
 export function applyIntent(session, intent) {
   session.intent = intent;
+
+  if (intent?.type === 'product_discovery' || intent?.type === 'product_detail') {
+    session.selectedProduct = null;
+    session.selectedVariant = null;
+    session.pendingBusinessMessages = [{
+      outcome: 'new_product_discovery',
+      rawMessage: session.currentUserMessage || '',
+      assistantMessage: 'A new product discovery request is active. Do not mention older pending cart suggestions unless the shopper asks to return to them.'
+    }];
+  }
+
   return session;
 }
 
@@ -48,12 +59,14 @@ export function applyCartState(session, cartResult) {
   if (!cartResult) return session;
 
   session.cartSnapshot = cartResult.response || cartResult;
-  session.pendingBusinessMessages.push(cartResult.businessMessage);
+  if (cartResult.businessMessage) {
+    session.pendingBusinessMessages.push(cartResult.businessMessage);
+  }
 
   const cartId = extractFirstValue(session.cartSnapshot, ['cart_id', 'cartId', 'id']);
   if (cartId) session.cartId = cartId;
 
-  const checkoutUrl = extractFirstValue(session.cartSnapshot, ['checkout_url', 'checkoutUrl']);
+  const checkoutUrl = extractFirstValue(session.cartSnapshot, ['checkout_url', 'checkoutUrl', 'webUrl', 'url']);
   if (checkoutUrl) session.checkoutUrl = checkoutUrl;
 
   return session;
@@ -99,9 +112,35 @@ function formatMessages(messages) {
 function extractFirstValue(source, keys) {
   if (!source) return '';
 
+  if (typeof source === 'string') {
+    if (keys.some((key) => ['checkout_url', 'checkoutUrl', 'webUrl', 'url'].includes(key)) && source.includes('checkout')) {
+      return source;
+    }
+
+    try {
+      return extractFirstValue(JSON.parse(source), keys);
+    } catch (_error) {
+      return '';
+    }
+  }
+
   if (typeof source === 'object' && !Array.isArray(source)) {
     for (const key of keys) {
-      if (source[key]) return source[key];
+      if (source[key] && (key !== 'url' || String(source[key]).includes('checkout'))) {
+        return source[key];
+      }
+    }
+
+    for (const value of Object.values(source)) {
+      const nestedValue = extractFirstValue(value, keys);
+      if (nestedValue) return nestedValue;
+    }
+  }
+
+  if (Array.isArray(source)) {
+    for (const value of source) {
+      const nestedValue = extractFirstValue(value, keys);
+      if (nestedValue) return nestedValue;
     }
   }
 

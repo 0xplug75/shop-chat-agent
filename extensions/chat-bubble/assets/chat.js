@@ -562,6 +562,9 @@
           const streamUrl = this.buildBackendUrl('/chat');
           const shopId = window.shopId;
 
+          console.log('[IntentCart] resolved backendUrl:', window.shopChatConfig?.backendUrl || '');
+          console.log('[IntentCart] POST /chat URL:', streamUrl);
+
           const response = await fetch(streamUrl, {
             method: 'POST',
             headers: {
@@ -572,9 +575,20 @@
             body: requestBody
           });
 
+          console.log('[IntentCart] POST /chat status:', response.status, response.statusText);
+
+          if (!response.ok) {
+            throw new Error(`Chat request failed with ${response.status} ${response.statusText}`);
+          }
+
+          if (!response.body) {
+            throw new Error('Chat request did not return a readable stream');
+          }
+
           const reader = response.body.getReader();
           const decoder = new TextDecoder();
           let buffer = '';
+          let receivedStreamEvent = false;
 
           // Create initial message element
           let messageElement = document.createElement('div');
@@ -597,6 +611,8 @@
               if (line.startsWith('data: ')) {
                 try {
                   const data = JSON.parse(line.slice(6));
+                  receivedStreamEvent = true;
+                  console.log('[IntentCart] SSE event:', data.type, data);
                   this.handleStreamEvent(data, currentMessageElement, messagesContainer, userMessage,
                     (newElement) => { currentMessageElement = newElement; });
                 } catch (e) {
@@ -605,6 +621,12 @@
               }
             }
           }
+
+          if (!receivedStreamEvent) {
+            throw new Error('Chat stream closed without SSE events');
+          }
+
+          ShopAIChat.UI.removeTypingIndicator();
         } catch (error) {
           console.error('Error in streaming:', error);
           ShopAIChat.UI.removeTypingIndicator();
@@ -665,6 +687,16 @@
 
           case 'product_results':
             ShopAIChat.UI.displayProductResults(data.products);
+            break;
+
+          case 'cart_state':
+            if (data.checkoutUrl) {
+              ShopAIChat.Message.add(
+                `Your cart is ready. You can [click here to proceed to checkout](${data.checkoutUrl}).`,
+                'assistant',
+                messagesContainer
+              );
+            }
             break;
 
           case 'tool_use':
@@ -1009,7 +1041,9 @@
           return product.options
             .map((option) => {
               if (typeof option === 'string') return option;
-              const values = Array.isArray(option.values) ? option.values.join(', ') : '';
+              const values = Array.isArray(option.values)
+                ? option.values.map(ShopAIChat.Product.formatOptionValue).filter(Boolean).join(', ')
+                : '';
               return values ? `${option.name}: ${values}` : option.name;
             })
             .filter(Boolean)
@@ -1021,6 +1055,18 @@
         }
 
         return '';
+      },
+
+      /**
+       * Format a Shopify/UCP option value for display.
+       * @param {string|number|Object} value - Option value
+       * @returns {string} Display label
+       */
+      formatOptionValue: function(value) {
+        if (value === null || value === undefined) return '';
+        if (typeof value === 'string' || typeof value === 'number') return String(value);
+
+        return value.label || value.name || value.value || value.title || '';
       }
     },
 

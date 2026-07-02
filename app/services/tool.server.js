@@ -98,34 +98,104 @@ export function createToolService() {
       ? product.variants.map((variant) => ({
           id: variant.id || variant.variant_id || '',
           title: variant.title || variant.name || '',
-          price: variant.price || '',
-          currency: variant.currency || product.price_range?.currency || '',
-          available: variant.available ?? variant.available_for_sale ?? null,
-          selected_options: variant.selected_options || variant.options || []
+          price: formatMoney(variant.price),
+          currency: variant.currency || variant.price?.currency || product.price_range?.min?.currency || '',
+          available: variant.available ?? variant.available_for_sale ?? variant.availability?.available ?? null,
+          selected_options: normalizeSelectedOptions(variant.selected_options || variant.options || [])
         }))
       : [];
 
     const price = product.price_range
-      ? `${product.price_range.currency} ${product.price_range.min}`
+      ? formatMoney(product.price_range.min)
       : (variants.length > 0
-        ? `${variants[0].currency} ${variants[0].price}`.trim()
+        ? variants[0].price
         : 'Price not available');
 
     return {
-      id: product.product_id || `product-${Math.random().toString(36).substring(7)}`,
+      id: product.product_id || product.id || `product-${Math.random().toString(36).substring(7)}`,
       product_id: product.product_id || product.id || '',
       title: product.title || 'Product',
       price: price,
       price_range: product.price_range || null,
-      image_url: product.image_url || '',
-      description: product.description || '',
+      image_url: product.image_url || product.media?.[0]?.url || '',
+      description: getDescriptionText(product.description),
       url: product.url || '',
-      options: product.options || [],
+      options: normalizeProductOptions(product.options || []),
       variants,
-      available: product.available ?? product.available_for_sale ?? null,
+      available: product.available ?? product.available_for_sale ?? variants.some((variant) => variant.available === true),
       rating: product.rating || null,
       tags: product.tags || []
     };
+  };
+
+  const normalizeProductOptions = (options) => {
+    if (!Array.isArray(options)) return [];
+
+    return options
+      .map((option) => {
+        if (typeof option === 'string') {
+          return {
+            name: 'Option',
+            values: [option]
+          };
+        }
+
+        const values = Array.isArray(option?.values)
+          ? option.values.map(formatOptionValue).filter(Boolean)
+          : [];
+
+        return {
+          name: formatOptionValue(option?.name) || 'Option',
+          values
+        };
+      })
+      .filter((option) => option.name || option.values.length > 0);
+  };
+
+  const normalizeSelectedOptions = (options) => {
+    if (!Array.isArray(options)) return [];
+
+    return options
+      .map((option) => {
+        if (typeof option === 'string') return option;
+
+        const name = formatOptionValue(option?.name) || 'Option';
+        const value = formatOptionValue(option?.label || option?.value || option?.name || option);
+
+        return value ? `${name}: ${value}` : name;
+      })
+      .filter(Boolean);
+  };
+
+  const formatOptionValue = (value) => {
+    if (value === null || value === undefined) return '';
+    if (typeof value === 'string' || typeof value === 'number') return String(value);
+    return value.label || value.name || value.value || value.title || '';
+  };
+
+  const formatMoney = (money) => {
+    if (!money) return '';
+
+    if (typeof money === 'string') return money;
+    if (typeof money === 'number') return String(money);
+
+    const amount = money.amount;
+    const currency = money.currency || '';
+
+    if (amount === undefined || amount === null) return '';
+
+    const numericAmount = Number(amount);
+    const displayAmount = Number.isFinite(numericAmount)
+      ? (numericAmount / 100).toFixed(2)
+      : String(amount);
+
+    return `${currency} ${displayAmount}`.trim();
+  };
+
+  const getDescriptionText = (description) => {
+    if (!description) return '';
+    if (typeof description === 'string') return description;
+    return description.html || description.text || '';
   };
 
   /**

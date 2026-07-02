@@ -77,6 +77,14 @@ async function handleHistoryRequest(request, conversationId) {
  * @returns {Response} Server-sent events stream
  */
 async function handleChatRequest(request) {
+  // TEMP DEBUG: confirm the POST actually reaches this route and see what
+  // headers/host it arrived with, before any parsing/MCP/Claude work happens.
+  console.log(`[chat] request received: ${request.method} ${request.url}`, {
+    origin: request.headers.get("Origin"),
+    shopId: request.headers.get("X-Shopify-Shop-Id"),
+    accept: request.headers.get("Accept")
+  });
+
   try {
     // Get message data from request body
     const body = await request.json();
@@ -93,6 +101,8 @@ async function handleChatRequest(request) {
     // Generate or use existing conversation ID
     const conversationId = body.conversation_id || Date.now().toString();
     const promptType = body.prompt_type || AppConfig.api.defaultPromptType;
+
+    console.log(`[chat] parsed body: conversationId=${conversationId}, promptType=${promptType}, messageLength=${userMessage.length}`);
 
     // Create a stream for the response
     const responseStream = createSseStream(async (stream) => {
@@ -141,6 +151,9 @@ async function handleChatSession({
   // Initialize MCP client
   const shopId = request.headers.get("X-Shopify-Shop-Id");
   const shopDomain = request.headers.get("Origin");
+
+  console.log(`[chat] session: conversationId=${conversationId}, shopId=${shopId}, shopDomain(Origin)=${shopDomain}`);
+
   const customerAccountUrls = await getCustomerAccountUrls(shopDomain, conversationId);
   const mcpApiUrl = customerAccountUrls?.mcpApiUrl;
 
@@ -150,6 +163,8 @@ async function handleChatSession({
     shopId,
     mcpApiUrl,
   );
+
+  console.log(`[chat] resolved MCP endpoints: storefront=${mcpClient.storefrontMcpEndpoint}, customer=${mcpClient.customerMcpEndpoint}`);
 
   try {
     // Send conversation ID to client
@@ -200,6 +215,7 @@ async function handleChatSession({
     let finalMessage = { role: 'user', content: userMessage };
 
     while (finalMessage.stop_reason !== "end_turn") {
+      console.log(`[chat] Claude call starting: conversationId=${conversationId}, history=${conversationHistory.length}, tools=${mcpClient.tools.length}`);
       finalMessage = await claudeService.streamConversation(
         {
           messages: conversationHistory,
@@ -245,6 +261,24 @@ async function handleChatSession({
               tool_use_message: toolUseMessage
             });
 
+            if (toolName === AppConfig.tools.updateCartName && !isConfirmedCartMutation({ userMessage, toolArgs })) {
+              await toolService.addToolResultToHistory(
+                conversationHistory,
+                toolUseId,
+                'Cart update blocked: ask the shopper to explicitly confirm the exact product, variant, and quantity before calling update_cart. Do not change the cart yet.',
+                conversationId
+              );
+
+              commerceSession.pendingBusinessMessages.push({
+                outcome: 'requires_buyer_confirmation',
+                rawMessage: userMessage,
+                assistantMessage: 'Ask the shopper to confirm the exact product, variant, and quantity before adding anything to cart.'
+              });
+
+              stream.sendMessage({ type: 'new_message' });
+              return;
+            }
+
             // Call the tool
             const toolUseResponse = await mcpClient.callTool(toolName, toolArgs);
 
@@ -268,13 +302,21 @@ async function handleChatSession({
                 conversationId
               );
 
-              applyCommerceToolResult({
+              const commerceToolResult = applyCommerceToolResult({
                 commerceSession,
                 toolName,
                 toolUseResponse,
                 toolService,
                 checkoutAdapter: adapters.checkout
               });
+
+              if (commerceToolResult?.checkoutUrl) {
+                stream.sendMessage({
+                  type: 'cart_state',
+                  cartId: commerceSession.cartId,
+                  checkoutUrl: commerceToolResult.checkoutUrl
+                });
+              }
             }
 
             // Signal new message to client
@@ -292,6 +334,7 @@ async function handleChatSession({
           }
         }
       );
+      console.log(`[chat] Claude call finished: conversationId=${conversationId}, stopReason=${finalMessage.stop_reason}`);
     }
 
     // Signal end of turn
@@ -376,23 +419,69 @@ function applyCommerceToolResult({
 }) {
   if (toolName === AppConfig.tools.productSearchName) {
     applyCatalogResults(commerceSession, toolService.processProductSearchResult(toolUseResponse));
-    return;
+    return { type: 'catalog' };
   }
 
   if (toolName === AppConfig.tools.getCartName || toolName === AppConfig.tools.updateCartName) {
+    const checkoutUrl = checkoutAdapter.getCheckoutUrlFromCartOrCheckout(toolUseResponse);
+
     applyCartState(commerceSession, {
       response: toolUseResponse,
       businessMessage: {
         outcome: 'cart_tool_result',
         rawMessage: extractToolText(toolUseResponse),
-        assistantMessage: 'Shopify returned updated cart information.'
+        assistantMessage: checkoutUrl
+          ? `Shopify returned updated cart information. Checkout URL: ${checkoutUrl}`
+          : 'Shopify returned updated cart information.'
       }
     });
 
     applyCheckout(commerceSession, {
-      checkoutUrl: checkoutAdapter.getCheckoutUrlFromCartOrCheckout(toolUseResponse)
+      checkoutUrl
     });
+
+    return {
+      type: 'cart',
+      checkoutUrl
+    };
   }
+
+  return null;
+}
+
+function isConfirmedCartMutation({ userMessage, toolArgs }) {
+  const normalizedMessage = String(userMessage || '').toLowerCase();
+  const hasExplicitConfirmation = [
+    'yes',
+    'confirmed',
+    'i confirm',
+    'confirm it',
+    'go ahead',
+    'add it',
+    'add this',
+    'add both',
+    'add to cart',
+    'ajoute',
+    'ajouter',
+    'oui',
+    'je confirme',
+    'vas-y'
+  ].some((phrase) => normalizedMessage.includes(phrase));
+
+  if (!hasExplicitConfirmation) return false;
+
+  const addItems = Array.isArray(toolArgs?.add_items) ? toolArgs.add_items : [];
+  const updateItems = Array.isArray(toolArgs?.update_items) ? toolArgs.update_items : [];
+
+  const hasExactAddItems = addItems.length > 0 && addItems.every((item) =>
+    Boolean(item?.product_variant_id) && Number(item?.quantity) > 0
+  );
+
+  const hasExactUpdateItems = updateItems.length > 0 && updateItems.every((item) =>
+    Boolean(item?.id) && Number.isInteger(Number(item?.quantity))
+  );
+
+  return hasExactAddItems || hasExactUpdateItems;
 }
 
 function extractToolText(toolResponse) {
@@ -413,6 +502,27 @@ function extractToolText(toolResponse) {
 }
 
 /**
+ * Fetch with an AbortController-based timeout.
+ * @param {string} url - The URL to fetch
+ * @param {number} timeoutMs - Timeout in milliseconds
+ * @returns {Promise<Response>} The fetch response
+ */
+async function fetchWithTimeout(url, timeoutMs) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { signal: controller.signal });
+  } catch (error) {
+    if (error.name === "AbortError") {
+      throw new Error(`Request to ${url} timed out after ${timeoutMs}ms`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+/**
  * Get the customer MCP API URL for a shop
  * @param {string} shopDomain - The shop domain
  * @param {string} conversationId - The conversation ID
@@ -428,10 +538,16 @@ async function getCustomerAccountUrls(shopDomain, conversationId) {
 
     // If not, query for it from the Shopify API
     const { hostname } = new URL(shopDomain);
+    console.log(`[chat] resolving customer account URLs for hostname=${hostname}`);
+
+    // TEMP DEBUG: these well-known fetches had no timeout before, so an
+    // unreachable/slow host would hang the whole request before MCP connect
+    // logs are ever reached.
+    const wellKnownFetch = (path) => fetchWithTimeout(`https://${hostname}${path}`, 10000).then(res => res.json());
 
     const urls = await Promise.all([
-      fetch(`https://${hostname}/.well-known/customer-account-api`).then(res => res.json()),
-      fetch(`https://${hostname}/.well-known/openid-configuration`).then(res => res.json()),
+      wellKnownFetch('/.well-known/customer-account-api'),
+      wellKnownFetch('/.well-known/openid-configuration'),
     ]).then(async ([mcpResponse, openidResponse]) => {
       const response = {
         mcpApiUrl: mcpResponse.mcp_api,

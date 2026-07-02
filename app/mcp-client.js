@@ -1,5 +1,6 @@
 import { generateAuthUrl } from "./auth.server";
 import { getCustomerToken } from "./db.server";
+import AppConfig from "./services/config.server";
 
 /**
  * Client for interacting with Model Context Protocol (MCP) API endpoints.
@@ -69,6 +70,8 @@ class MCPClient {
       this.customerTools = customerTools;
       this.tools = [...this.tools, ...customerTools];
 
+      console.log(`[MCP] customer tools/list -> ${customerTools.length} tools: ${customerTools.map(t => t.name).join(', ')}`);
+
       return customerTools;
     } catch (e) {
       console.error("Failed to connect to MCP server: ", e);
@@ -104,6 +107,8 @@ class MCPClient {
       this.storefrontTools = storefrontTools;
       this.tools = [...this.tools, ...storefrontTools];
 
+      console.log(`[MCP] storefront tools/list -> ${storefrontTools.length} tools: ${storefrontTools.map(t => t.name).join(', ')}`);
+
       return storefrontTools;
     } catch (e) {
       console.error("Failed to connect to MCP server: ", e);
@@ -120,13 +125,32 @@ class MCPClient {
    * @throws {Error} If tool is not found or call fails
    */
   async callTool(toolName, toolArgs) {
+    let result;
     if (this.customerTools.some(tool => tool.name === toolName)) {
-      return this.callCustomerTool(toolName, toolArgs);
+      result = await this.callCustomerTool(toolName, toolArgs);
     } else if (this.storefrontTools.some(tool => tool.name === toolName)) {
-      return this.callStorefrontTool(toolName, toolArgs);
+      result = await this.callStorefrontTool(toolName, toolArgs);
     } else {
+      console.error(`[MCP] callTool: "${toolName}" not found in known tools. customerTools=[${this.customerTools.map(t => t.name)}] storefrontTools=[${this.storefrontTools.map(t => t.name)}]`);
       throw new Error(`Tool ${toolName} not found`);
     }
+
+    // TEMP DEBUG: surface raw response size / product count for the catalog
+    // search tool so we can see whether Shopify is actually returning products.
+    if (toolName === AppConfig.tools.productSearchName) {
+      const text = result?.content?.[0]?.text;
+      let productCount = "n/a";
+      try {
+        const parsed = typeof text === "string" ? JSON.parse(text) : text;
+        productCount = Array.isArray(parsed?.products) ? parsed.products.length : "n/a";
+      } catch (_e) {
+        // leave as n/a
+      }
+      const size = JSON.stringify(result || {}).length;
+      console.log(`[MCP] ${toolName} response: ~${size} bytes, products=${productCount}, error=${Boolean(result?.error)}`);
+    }
+
+    return result;
   }
 
   /**
@@ -248,25 +272,62 @@ class MCPClient {
    * @throws {Error} If the request fails
    */
   async _makeJsonRpcRequest(endpoint, method, params, headers) {
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: headers,
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        method: method,
-        id: 1,
-        params: params
-      }),
-    });
+    // TEMP DEBUG: timeout + timing instrumentation for MCP JSON-RPC calls.
+    // Previously this fetch had no timeout at all, so an unreachable or
+    // slow-to-respond MCP endpoint would hang the whole chat request forever
+    // (infinite typing dots, no error surfaced).
+    const timeoutMs = method === "tools/call"
+      ? AppConfig.mcp.toolCallTimeoutMs
+      : AppConfig.mcp.connectTimeoutMs;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    const startedAt = Date.now();
+
+    console.log(`[MCP] -> ${method} ${endpoint} (timeout ${timeoutMs}ms)`, params?.name ? { tool: params.name } : "");
+
+    let response;
+    try {
+      response = await fetch(endpoint, {
+        method: "POST",
+        headers: headers,
+        signal: controller.signal,
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          method: method,
+          id: 1,
+          params: params
+        }),
+      });
+    } catch (error) {
+      const durationMs = Date.now() - startedAt;
+      if (error.name === "AbortError") {
+        console.error(`[MCP] <- ${method} ${endpoint} TIMED OUT after ${durationMs}ms`);
+        const timeoutError = new Error(`MCP request to ${endpoint} (${method}) timed out after ${timeoutMs}ms`);
+        timeoutError.status = 504;
+        throw timeoutError;
+      }
+      console.error(`[MCP] <- ${method} ${endpoint} network error after ${durationMs}ms:`, error.message);
+      throw error;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+
+    const durationMs = Date.now() - startedAt;
 
     if (!response.ok) {
       const error = await response.text();
+      console.error(`[MCP] <- ${method} ${endpoint} failed ${response.status} after ${durationMs}ms: ${error}`);
       const errorObj = new Error(`Request failed: ${response.status} ${error}`);
       errorObj.status = response.status;
       throw errorObj;
     }
 
-    return await response.json();
+    const json = await response.json();
+    const bodySize = JSON.stringify(json).length;
+    console.log(`[MCP] <- ${method} ${endpoint} ok in ${durationMs}ms (response ~${bodySize} bytes)`);
+
+    return json;
   }
 
   /**

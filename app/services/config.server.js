@@ -6,9 +6,20 @@
 export const AppConfig = {
   // API Configuration
   api: {
-    defaultModel: 'claude-sonnet-4-20250514',
+    defaultModel: 'claude-sonnet-5',
     maxTokens: 2000,
     defaultPromptType: 'agenticBuyingAssistant',
+    // TEMP DEBUG: safety cap so a stalled Claude stream surfaces as a visible
+    // error instead of infinite typing dots. Remove once root cause is fixed.
+    claudeStreamTimeoutMs: 45000,
+  },
+
+  // TEMP DEBUG: network timeouts for MCP calls (tools/list, tools/call, and
+  // well-known discovery fetches). None of these had timeouts before, so a
+  // stalled/unreachable MCP endpoint would hang the request forever.
+  mcp: {
+    connectTimeoutMs: 12000,
+    toolCallTimeoutMs: 20000,
   },
 
   // Error Message Templates
@@ -24,7 +35,7 @@ export const AppConfig = {
 
   // Tool Configuration
   tools: {
-    productSearchName: "search_shop_catalog",
+    productSearchName: "search_catalog",
     policySearchName: "search_shop_policies_and_faqs",
     getCartName: "get_cart",
     updateCartName: "update_cart",

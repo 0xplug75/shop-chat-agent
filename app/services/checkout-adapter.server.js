@@ -13,23 +13,44 @@ export function createCheckoutAdapter() {
   const getCheckoutUrlFromCartOrCheckout = (response) => {
     if (!response) return '';
 
-    if (typeof response === 'string') return response.includes('checkout') ? response : '';
+    if (typeof response === 'string') {
+      if (response.includes('checkout')) return response;
+      try {
+        return getCheckoutUrlFromCartOrCheckout(JSON.parse(response));
+      } catch (_error) {
+        return '';
+      }
+    }
+
+    if (Array.isArray(response)) {
+      for (const item of response) {
+        const checkoutUrl = getCheckoutUrlFromCartOrCheckout(item);
+        if (checkoutUrl) return checkoutUrl;
+      }
+
+      return '';
+    }
 
     if (response.checkoutUrl) return response.checkoutUrl;
     if (response.checkout_url) return response.checkout_url;
     if (response.webUrl) return response.webUrl;
+    if (response.checkout?.url) return response.checkout.url;
+    if (response.checkout?.webUrl) return response.checkout.webUrl;
+    if (response.cart?.checkoutUrl) return response.cart.checkoutUrl;
+    if (response.cart?.checkout_url) return response.cart.checkout_url;
     if (response.url && String(response.url).includes('checkout')) return response.url;
 
     const content = Array.isArray(response.content) ? response.content[0]?.text : null;
-    if (!content) return '';
+    if (content) return getCheckoutUrlFromCartOrCheckout(content);
 
-    try {
-      const parsedContent = typeof content === 'string' ? JSON.parse(content) : content;
-      return getCheckoutUrlFromCartOrCheckout(parsedContent);
-    } catch (_error) {
-      const match = String(content).match(/https?:\/\/\S*checkout\S*/);
-      return match ? match[0] : '';
+    if (typeof response === 'object') {
+      for (const value of Object.values(response)) {
+        const checkoutUrl = getCheckoutUrlFromCartOrCheckout(value);
+        if (checkoutUrl) return checkoutUrl;
+      }
     }
+
+    return '';
   };
 
   return {

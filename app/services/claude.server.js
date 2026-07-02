@@ -12,6 +12,9 @@ import systemPrompts from "../prompts/prompts.json";
  * @returns {Object} Claude service with methods for interacting with Claude API
  */
 export function createClaudeService(apiKey = process.env.CLAUDE_API_KEY) {
+  // TEMP DEBUG: confirm the key actually loaded from env (never log the value)
+  console.log(`[claude] CLAUDE_API_KEY loaded: ${Boolean(apiKey)}${apiKey ? ` (len=${apiKey.length})` : ''}`);
+
   // Initialize Claude client
   const anthropic = new Anthropic({ apiKey });
 
@@ -36,6 +39,9 @@ export function createClaudeService(apiKey = process.env.CLAUDE_API_KEY) {
     // Get system prompt from configuration or use default
     const systemInstruction = buildSystemInstruction(promptType, commerceContext);
 
+    console.log(`[claude] streamConversation start: promptType=${promptType}, messages=${messages?.length ?? 0}, tools=${tools?.length ?? 0}`);
+    const startedAt = Date.now();
+
     // Create stream
     const stream = await anthropic.messages.stream({
       model: AppConfig.api.defaultModel,
@@ -58,13 +64,33 @@ export function createClaudeService(apiKey = process.env.CLAUDE_API_KEY) {
       stream.on('contentBlock', streamHandlers.onContentBlock);
     }
 
-    // Wait for final message
-    const finalMessage = await stream.finalMessage();
+    // TEMP DEBUG: race the Claude stream against a hard timeout so a stalled
+    // Anthropic connection (or one that never emits 'end') surfaces as a
+    // visible error instead of leaving the client's typing indicator forever.
+    const timeoutMs = AppConfig.api.claudeStreamTimeoutMs;
+    let timeoutId;
+    const timeoutPromise = new Promise((_resolve, reject) => {
+      timeoutId = setTimeout(() => {
+        console.error(`[claude] streamConversation TIMED OUT after ${timeoutMs}ms, aborting stream`);
+        stream.abort();
+        reject(new Error(`Claude stream timed out after ${timeoutMs}ms`));
+      }, timeoutMs);
+    });
+
+    let finalMessage;
+    try {
+      finalMessage = await Promise.race([stream.finalMessage(), timeoutPromise]);
+    } finally {
+      clearTimeout(timeoutId);
+    }
+
+    console.log(`[claude] streamConversation done in ${Date.now() - startedAt}ms: stop_reason=${finalMessage.stop_reason}, content_blocks=${finalMessage.content?.length ?? 0}`);
 
     // Process tool use requests
     if (streamHandlers.onToolUse && finalMessage.content) {
       for (const content of finalMessage.content) {
         if (content.type === "tool_use") {
+          console.log(`[claude] tool_use requested: ${content.name}`, content.input);
           await streamHandlers.onToolUse(content);
         }
       }
