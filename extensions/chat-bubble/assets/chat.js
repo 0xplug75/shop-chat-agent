@@ -516,6 +516,33 @@
      */
     API: {
       /**
+       * Get the configured backend base URL.
+       * Supports absolute app dev tunnel URLs and same-origin app proxy paths.
+       * @returns {string} Backend base URL without trailing slash
+       */
+      getBackendBaseUrl: function() {
+        const configuredUrl = window.shopChatConfig?.backendUrl?.trim();
+
+        if (!configuredUrl) return '';
+
+        return configuredUrl.replace(/\/+$/, '');
+      },
+
+      /**
+       * Build a backend URL for chat and auth endpoints.
+       * @param {string} path - Endpoint path beginning with /
+       * @returns {string} Resolved backend URL
+       */
+      buildBackendUrl: function(path) {
+        const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+        const backendBaseUrl = this.getBackendBaseUrl();
+
+        if (!backendBaseUrl) return normalizedPath;
+
+        return `${backendBaseUrl}${normalizedPath}`;
+      },
+
+      /**
        * Stream a response from the API
        * @param {string} userMessage - User's message text
        * @param {string} conversationId - Conversation ID for context
@@ -532,7 +559,7 @@
             prompt_type: promptType
           });
 
-          const streamUrl = 'https://localhost:3458/chat';
+          const streamUrl = this.buildBackendUrl('/chat');
           const shopId = window.shopId;
 
           const response = await fetch(streamUrl, {
@@ -681,7 +708,7 @@
           messagesContainer.appendChild(loadingMessage);
 
           // Fetch history from the server
-          const historyUrl = `https://localhost:3458/chat?history=true&conversation_id=${encodeURIComponent(conversationId)}`;
+          const historyUrl = this.buildBackendUrl(`/chat?history=true&conversation_id=${encodeURIComponent(conversationId)}`);
           console.log('Fetching history from:', historyUrl);
 
           const response = await fetch(historyUrl, {
@@ -830,8 +857,9 @@
           attemptCount++;
 
           try {
-            const tokenUrl = 'https://localhost:3458/auth/token-status?conversation_id=' +
-              encodeURIComponent(conversationId);
+            const tokenUrl = ShopAIChat.API.buildBackendUrl(
+              `/auth/token-status?conversation_id=${encodeURIComponent(conversationId)}`
+            );
             const response = await fetch(tokenUrl);
 
             if (!response.ok) {

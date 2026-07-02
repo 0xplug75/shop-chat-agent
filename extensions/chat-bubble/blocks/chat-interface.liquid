@@ -56,7 +56,8 @@
 <script>
   window.shopChatConfig = {
     promptType: {{ block.settings.system_prompt | json }},
-    welcomeMessage: {{ block.settings.welcome_message | json }}
+    welcomeMessage: {{ block.settings.welcome_message | json }},
+    backendUrl: {{ block.settings.backend_url | json }}
   };
   window.shopId = {{ shop.id }};
 </script>
@@ -97,6 +98,13 @@
         }
       ],
       "default": "agenticBuyingAssistant"
+    },
+    {
+      "type": "text",
+      "id": "backend_url",
+      "label": "Backend URL",
+      "info": "Use the Shopify app dev tunnel URL, or an app proxy path such as /apps/intentcart. Leave blank to use the storefront origin.",
+      "default": ""
     }
   ]
 }
