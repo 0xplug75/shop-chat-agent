@@ -47,16 +47,17 @@ export default function Index() {
           </div>
           <div className={styles.statusPill}>
             <span className={styles.statusDot} />
-            Dev mode active
+            Configuration preview
           </div>
         </section>
 
         <section className={styles.metricsGrid} aria-label="Runtime status">
           <Metric label="Assistant" value={config.assistant.name} detail="Loaded from merchant config" />
-          <Metric label="Catalog" value="MCP ready" detail="Real Shopify product search" />
+          <Metric label="Catalog" value="MCP adapter planned / configured" detail="Real Shopify product search" />
           <Metric label="Recommendations" value={`${config.shopping.maxProducts} cards`} detail="Per shopper turn" />
-          <Metric label="Analytics" value={config.analytics.enabled ? "Enabled" : "Off"} detail={`${config.analytics.events.length} events reserved`} />
+          <Metric label="Analytics" value={config.analytics.enabled ? "Schema configured" : "Schema off"} detail={`${config.analytics.events.length} events reserved`} />
         </section>
+        <p className={styles.muted}>These are configuration indicators, not live health checks yet.</p>
 
         <section className={styles.mainGrid}>
           <div className={styles.panel}>
