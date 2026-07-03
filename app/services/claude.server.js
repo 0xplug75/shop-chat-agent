@@ -5,6 +5,7 @@
 import { Anthropic } from "@anthropic-ai/sdk";
 import AppConfig from "./config.server";
 import systemPrompts from "../prompts/prompts.json";
+import { getMerchantConfig } from "../merchant/merchant.server";
 
 /**
  * Creates a Claude service instance
@@ -119,10 +120,24 @@ export function createClaudeService(apiKey = process.env.CLAUDE_API_KEY) {
    */
   const buildSystemInstruction = (promptType, commerceContext) => {
     const systemPrompt = getSystemPrompt(promptType);
+    const merchantConfig = getMerchantConfig();
+    const assistantConfig = merchantConfig.assistant;
+    const shoppingConfig = merchantConfig.shopping;
+    const merchantInstruction = [
+      "Merchant configuration (internal, authoritative):",
+      `- Assistant name: ${assistantConfig.name}`,
+      `- Personality: ${assistantConfig.personality}`,
+      `- Brand voice: ${assistantConfig.brandVoice}`,
+      `- Recommendation max products: ${shoppingConfig.recommendationRules.maxProducts}`,
+      `- Bundle strategy: ${shoppingConfig.bundleStrategy}`,
+      `- Out-of-stock policy: ${shoppingConfig.outOfStockPolicy}`
+    ].join("\n");
 
-    if (!commerceContext) return systemPrompt;
+    if (!commerceContext) {
+      return `${systemPrompt}\n\n${merchantInstruction}`;
+    }
 
-    return `${systemPrompt}\n\nCommerce session context (internal, factual - do not repeat as raw JSON to the shopper):\n${JSON.stringify(commerceContext)}`;
+    return `${systemPrompt}\n\n${merchantInstruction}\n\nCommerce session context (internal, factual - do not repeat as raw JSON to the shopper):\n${JSON.stringify(commerceContext)}`;
   };
 
   return {
