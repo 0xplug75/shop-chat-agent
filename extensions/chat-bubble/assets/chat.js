@@ -12,6 +12,106 @@
    */
   const ShopAIChat = {
     /**
+     * Storefront-safe merchant configuration loaded from the backend.
+     */
+    Config: {
+      defaults: {
+        assistant: {
+          name: 'Store Assistant',
+          welcomeMessage: window.shopChatConfig?.welcomeMessage || "👋 Hi there! How can I help you today?",
+          quickActions: [
+            "Find the right product",
+            "Compare options",
+            "Ready to buy"
+          ]
+        },
+        widget: {
+          position: 'bottom-right',
+          layout: 'bubble-modal-fullscreen',
+          colors: {},
+          behavior: {
+            showQuickActions: true,
+            allowFullscreen: true
+          }
+        }
+      },
+      quickActionPrompts: {
+        "Find the right product": "I need help finding the right product for me. Ask me what matters and recommend the best options.",
+        "Compare options": "Compare the best products for my needs and explain which one I should choose.",
+        "Ready to buy": "Show me products that are available now and help me add the best one to cart."
+      },
+      merchantConfig: null,
+
+      /**
+       * Load public merchant config. Failure keeps Liquid/static fallbacks.
+       * @returns {Promise<Object>} Effective merchant config
+       */
+      load: async function() {
+        const fallbackConfig = this.getEffectiveConfig();
+
+        try {
+          const configUrl = ShopAIChat.API.buildBackendUrl('/merchant/config');
+          const response = await fetch(configUrl, {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json'
+            },
+            mode: 'cors'
+          });
+
+          if (!response.ok) {
+            throw new Error(`Merchant config request failed with ${response.status} ${response.statusText}`);
+          }
+
+          const publicConfig = await response.json();
+          this.merchantConfig = publicConfig;
+          this.applyToWindowConfig(publicConfig);
+          console.log('[IntentCart] merchant config loaded');
+        } catch (error) {
+          console.warn('[IntentCart] merchant config unavailable, using storefront defaults:', error.message);
+          this.merchantConfig = fallbackConfig;
+        }
+
+        return this.getEffectiveConfig();
+      },
+
+      getEffectiveConfig: function() {
+        return this.mergeConfig(this.defaults, this.merchantConfig || {});
+      },
+
+      applyToWindowConfig: function(config) {
+        window.shopChatConfig = {
+          ...(window.shopChatConfig || {}),
+          assistantName: config.assistant?.name || this.defaults.assistant.name,
+          welcomeMessage: config.assistant?.welcomeMessage || window.shopChatConfig?.welcomeMessage || this.defaults.assistant.welcomeMessage,
+          quickActions: config.assistant?.quickActions || this.defaults.assistant.quickActions,
+          widget: config.widget || this.defaults.widget
+        };
+      },
+
+      mergeConfig: function(baseConfig, overrideConfig) {
+        const merged = { ...baseConfig };
+
+        Object.keys(overrideConfig || {}).forEach((key) => {
+          const value = overrideConfig[key];
+          if (value && typeof value === 'object' && !Array.isArray(value) && baseConfig[key]) {
+            merged[key] = this.mergeConfig(baseConfig[key], value);
+          } else if (Array.isArray(value)) {
+            merged[key] = [...value];
+          } else if (value !== undefined) {
+            merged[key] = value;
+          }
+        });
+
+        return merged;
+      },
+
+      getQuickActionPrompt: function(label) {
+        return this.quickActionPrompts[label] || label;
+      }
+    },
+
+    /**
      * UI-related elements and functionality
      */
     UI: {
@@ -38,11 +138,15 @@
           chatInput: container.querySelector('.shop-ai-chat-input input'),
           sendButton: container.querySelector('.shop-ai-chat-send'),
           messagesContainer: container.querySelector('.shop-ai-chat-messages'),
+          suggestionsContainer: container.querySelector('.shop-ai-suggestions'),
           promptButtons: container.querySelectorAll('[data-shop-ai-prompt]')
         };
 
         // Detect mobile device
         this.isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+        // Apply merchant widget settings before binding handlers.
+        this.applyMerchantConfig(container);
 
         // Set up event listeners
         this.setupEventListeners();
@@ -123,6 +227,75 @@
             }
           }
         });
+      },
+
+      /**
+       * Apply storefront-safe merchant config to the existing widget surface.
+       * @param {HTMLElement} container - The main container element
+       */
+      applyMerchantConfig: function(container) {
+        const config = ShopAIChat.Config.getEffectiveConfig();
+        const widgetConfig = config.widget || {};
+        const assistantConfig = config.assistant || {};
+        const colors = widgetConfig.colors || {};
+
+        this.applyWidgetPosition(container, widgetConfig.position);
+        container.dataset.shopAiLayout = widgetConfig.layout || 'bubble-modal-fullscreen';
+
+        if (colors.primary) container.style.setProperty('--shop-ai-primary', colors.primary);
+        if (colors.background) container.style.setProperty('--shop-ai-background', colors.background);
+        if (colors.text) container.style.setProperty('--shop-ai-text', colors.text);
+        if (colors.accent) container.style.setProperty('--shop-ai-accent', colors.accent);
+
+        this.renderQuickActions(assistantConfig.quickActions, widgetConfig.behavior);
+      },
+
+      /**
+       * Apply one of the supported merchant widget positions.
+       * @param {HTMLElement} container - The main container element
+       * @param {string} position - Merchant widget position
+       */
+      applyWidgetPosition: function(container, position) {
+        const supportedPositions = ['bottom-right', 'bottom-left', 'top-right', 'top-left'];
+        const safePosition = supportedPositions.includes(position) ? position : 'bottom-right';
+
+        supportedPositions.forEach((item) => {
+          container.classList.remove(`shop-ai-position-${item}`);
+        });
+        container.classList.add(`shop-ai-position-${safePosition}`);
+      },
+
+      /**
+       * Render merchant quick actions into the existing suggestion row.
+       * @param {Array<string>} quickActions - Merchant quick action labels
+       * @param {Object} behavior - Widget behavior settings
+       */
+      renderQuickActions: function(quickActions, behavior) {
+        const { suggestionsContainer } = this.elements;
+        if (!suggestionsContainer) return;
+
+        if (behavior?.showQuickActions === false) {
+          suggestionsContainer.hidden = true;
+          this.elements.promptButtons = [];
+          return;
+        }
+
+        const actions = Array.isArray(quickActions) && quickActions.length > 0
+          ? quickActions
+          : ShopAIChat.Config.defaults.assistant.quickActions;
+
+        suggestionsContainer.hidden = false;
+        suggestionsContainer.innerHTML = '';
+
+        actions.forEach((label) => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.dataset.shopAiPrompt = ShopAIChat.Config.getQuickActionPrompt(label);
+          button.textContent = label;
+          suggestionsContainer.appendChild(button);
+        });
+
+        this.elements.promptButtons = suggestionsContainer.querySelectorAll('[data-shop-ai-prompt]');
       },
 
       /**
@@ -1073,7 +1246,9 @@
     /**
      * Initialize the chat application
      */
-    init: function() {
+    init: async function() {
+      await this.Config.load();
+
       // Initialize UI
       const container = document.querySelector('.shop-ai-chat-container');
       if (!container) return;
@@ -1096,6 +1271,8 @@
 
   // Initialize the application when DOM is ready
   document.addEventListener('DOMContentLoaded', function() {
-    ShopAIChat.init();
+    ShopAIChat.init().catch((error) => {
+      console.error('[IntentCart] failed to initialize widget:', error);
+    });
   });
 })();

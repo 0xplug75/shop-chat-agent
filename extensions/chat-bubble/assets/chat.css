@@ -1,5 +1,10 @@
 :root {
     --viewport-height: 100vh;
+    --shop-ai-primary: #5046e4;
+    --shop-ai-primary-hover: #3f36c0;
+    --shop-ai-background: #ffffff;
+    --shop-ai-text: #111827;
+    --shop-ai-accent: #a78bfa;
   }
 
   .shop-ai-chat-container {
@@ -10,10 +15,43 @@
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   }
 
+  .shop-ai-chat-container.shop-ai-position-bottom-left {
+    left: 20px;
+    right: auto;
+  }
+
+  .shop-ai-chat-container.shop-ai-position-top-right {
+    bottom: auto;
+    top: 20px;
+  }
+
+  .shop-ai-chat-container.shop-ai-position-top-left {
+    bottom: auto;
+    left: 20px;
+    right: auto;
+    top: 20px;
+  }
+
+  .shop-ai-position-bottom-left .shop-ai-choice-panel,
+  .shop-ai-position-bottom-left .shop-ai-chat-window,
+  .shop-ai-position-top-left .shop-ai-choice-panel,
+  .shop-ai-position-top-left .shop-ai-chat-window {
+    left: 0;
+    right: auto;
+  }
+
+  .shop-ai-position-top-right .shop-ai-choice-panel,
+  .shop-ai-position-top-left .shop-ai-choice-panel,
+  .shop-ai-position-top-right .shop-ai-chat-window,
+  .shop-ai-position-top-left .shop-ai-chat-window {
+    bottom: auto;
+    top: 80px;
+  }
+
   .shop-ai-chat-bubble {
     width: 60px;
     height: 60px;
-    background-color: #5046e4;
+    background-color: var(--shop-ai-primary);
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -28,7 +66,7 @@
     bottom: 80px;
     right: 0;
     width: min(360px, calc(100vw - 32px));
-    background: #ffffff;
+    background: var(--shop-ai-background);
     border: 1px solid #e7e7ea;
     border-radius: 14px;
     box-shadow: 0 18px 45px rgba(15, 23, 42, 0.18);
@@ -53,7 +91,7 @@
   }
 
   .shop-ai-choice-kicker {
-    color: #5046e4;
+    color: var(--shop-ai-primary);
     font-size: 12px;
     font-weight: 700;
     letter-spacing: 0;
@@ -71,7 +109,7 @@
   }
 
   .shop-ai-choice-panel h2 {
-    color: #15151a;
+    color: var(--shop-ai-text);
     font-size: 22px;
     line-height: 1.2;
     margin: 0 0 8px 0;
@@ -100,13 +138,13 @@
   }
 
   .shop-ai-start-chat {
-    background: #5046e4;
-    border: 1px solid #5046e4;
+    background: var(--shop-ai-primary);
+    border: 1px solid var(--shop-ai-primary);
     color: #ffffff;
   }
 
   .shop-ai-continue-browsing {
-    background: #ffffff;
+    background: var(--shop-ai-background);
     border: 1px solid #d9dbe3;
     color: #20242c;
   }
@@ -143,7 +181,7 @@
     height: calc(var(--viewport-height, 100vh) * 0.82);
     max-height: 820px;
     min-height: 560px;
-    background-color: white;
+    background-color: var(--shop-ai-background);
     border-radius: 16px;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
     display: flex;
@@ -229,7 +267,7 @@
   }
 
   .shop-ai-chat-eyebrow {
-    color: #b9bbff;
+    color: var(--shop-ai-accent);
     display: block;
     font-size: 11px;
     font-weight: 700;
@@ -287,7 +325,7 @@
   }
 
   .shop-ai-message.assistant a {
-    color: #5046e4;
+    color: var(--shop-ai-primary);
     text-decoration: underline;
     font-weight: 500;
     word-break: break-word;
@@ -344,7 +382,7 @@
 
   .shop-ai-message.user {
     align-self: flex-end;
-    background-color: #5046e4;
+    background-color: var(--shop-ai-primary);
     color: white;
     border-bottom-right-radius: 4px;
   }
@@ -439,11 +477,11 @@
   }
 
   .shop-ai-chat-input input:focus {
-    border-color: #5046e4;
+    border-color: var(--shop-ai-primary);
   }
 
   .shop-ai-chat-send {
-    background-color: #5046e4;
+    background-color: var(--shop-ai-primary);
     color: white;
     border: none;
     border-radius: 50%;
@@ -464,7 +502,7 @@
   }
 
   .shop-ai-suggestions button {
-    background: #ffffff;
+    background: var(--shop-ai-background);
     border: 1px solid #d9dbe3;
     border-radius: 999px;
     color: #292d36;
@@ -506,7 +544,7 @@
 
   /* Authentication link styles */
 .shop-auth-trigger {
-    color: #5046e4;
+    color: var(--shop-ai-primary);
     text-decoration: underline;
     font-weight: 500;
     cursor: pointer;
@@ -567,7 +605,7 @@
   
   /* Product Card Styling */
   .shop-ai-product-card {
-    background: white;
+    background: var(--shop-ai-background);
     border-radius: 8px;
     box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
     min-width: 230px;
@@ -624,7 +662,7 @@
     margin: 0 0 10px 0;
     font-size: 14px;
     font-weight: 600;
-    color: #5046e4;
+    color: var(--shop-ai-primary);
   }
 
   .shop-ai-product-description,
@@ -658,7 +696,7 @@
   .shop-ai-add-to-cart {
     width: 100%;
     padding: 8px 0;
-    background-color: #5046e4;
+    background-color: var(--shop-ai-primary);
     color: white;
     border: none;
     border-radius: 4px;
@@ -669,7 +707,7 @@
   }
   
   .shop-ai-add-to-cart:hover {
-    background-color: #3f36c0;
+    background-color: var(--shop-ai-primary-hover);
   }
   
   /* Responsive adjustments for small screens */
