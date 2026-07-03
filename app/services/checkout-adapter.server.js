@@ -58,7 +58,3 @@ export function createCheckoutAdapter() {
     getCheckoutUrlFromCartOrCheckout
   };
 }
-
-export default {
-  createCheckoutAdapter
-};

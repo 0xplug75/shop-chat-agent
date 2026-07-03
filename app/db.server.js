@@ -31,7 +31,7 @@ export async function storeCodeVerifier(state, verifier) {
       }
     });
   } catch (error) {
-    console.error('Error storing code verifier:', error);
+    console.error('[db] Error storing code verifier:', error);
     throw error;
   }
 }
@@ -63,7 +63,7 @@ export async function getCodeVerifier(state) {
 
     return verifier;
   } catch (error) {
-    console.error('Error retrieving code verifier:', error);
+    console.error('[db] Error retrieving code verifier:', error);
     return null;
   }
 }
@@ -106,7 +106,7 @@ export async function storeCustomerToken(conversationId, accessToken, expiresAt)
       }
     });
   } catch (error) {
-    console.error('Error storing customer token:', error);
+    console.error('[db] Error storing customer token:', error);
     throw error;
   }
 }
@@ -129,7 +129,7 @@ export async function getCustomerToken(conversationId) {
 
     return token;
   } catch (error) {
-    console.error('Error retrieving customer token:', error);
+    console.error('[db] Error retrieving customer token:', error);
     return null;
   }
 }
@@ -160,7 +160,7 @@ export async function createOrUpdateConversation(conversationId) {
       }
     });
   } catch (error) {
-    console.error('Error creating/updating conversation:', error);
+    console.error('[db] Error creating/updating conversation:', error);
     throw error;
   }
 }
@@ -186,7 +186,7 @@ export async function saveMessage(conversationId, role, content) {
       }
     });
   } catch (error) {
-    console.error('Error saving message:', error);
+    console.error('[db] Error saving message:', error);
     throw error;
   }
 }
@@ -205,7 +205,7 @@ export async function getConversationHistory(conversationId) {
 
     return messages;
   } catch (error) {
-    console.error('Error retrieving conversation history:', error);
+    console.error('[db] Error retrieving conversation history:', error);
     return [];
   }
 }
@@ -237,7 +237,7 @@ export async function storeCustomerAccountUrls({conversationId, mcpApiUrl, autho
       },
     });
   } catch (error) {
-    console.error('Error storing customer account URLs:', error);
+    console.error('[db] Error storing customer account URLs:', error);
     throw error;
   }
 }
@@ -253,7 +253,7 @@ export async function getCustomerAccountUrls(conversationId) {
       where: { conversationId }
     });
   } catch (error) {
-    console.error('Error retrieving customer account URLs:', error);
+    console.error('[db] Error retrieving customer account URLs:', error);
     return null;
   }
 }

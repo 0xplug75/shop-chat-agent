@@ -1,6 +1,16 @@
 /**
  * Business Message Interpreter
  * Converts Shopify MCP business outcomes into assistant-safe summaries.
+ *
+ * STATUS: not yet wired into the live request path. Its only caller today is
+ * cart-adapter.server.js (also currently unwired — see that file's header).
+ * chat.jsx's applyCommerceToolResult() currently builds a thinner, hardcoded
+ * business message inline for cart tool results instead of classifying
+ * outcomes through this interpreter. Kept intentionally — richer outcome
+ * classification (quantity_adjusted / not_found / unavailable /
+ * requires_selling_plan / requires_buyer_input) is the target behavior once
+ * cart-adapter is wired in. See
+ * docs/architecture-notes/cart-adapter-wiring-gap.md.
  */
 
 const OUTCOME_PATTERNS = [

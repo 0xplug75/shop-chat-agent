@@ -130,7 +130,3 @@ export function createClaudeService(apiKey = process.env.CLAUDE_API_KEY) {
     getSystemPrompt
   };
 }
-
-export default {
-  createClaudeService
-};

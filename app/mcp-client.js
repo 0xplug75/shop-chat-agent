@@ -1,6 +1,7 @@
 import { generateAuthUrl } from "./auth.server";
 import { getCustomerToken } from "./db.server";
 import AppConfig from "./services/config.server";
+import { fetchWithTimeout } from "./lib/fetch-with-timeout.server";
 
 /**
  * Client for interacting with Model Context Protocol (MCP) API endpoints.
@@ -272,36 +273,31 @@ class MCPClient {
    * @throws {Error} If the request fails
    */
   async _makeJsonRpcRequest(endpoint, method, params, headers) {
-    // TEMP DEBUG: timeout + timing instrumentation for MCP JSON-RPC calls.
-    // Previously this fetch had no timeout at all, so an unreachable or
-    // slow-to-respond MCP endpoint would hang the whole chat request forever
-    // (infinite typing dots, no error surfaced).
+    // Timeout + timing instrumentation for MCP JSON-RPC calls. Without a
+    // timeout here, an unreachable or slow-to-respond MCP endpoint hangs the
+    // whole chat request forever (infinite typing dots, no error surfaced).
     const timeoutMs = method === "tools/call"
       ? AppConfig.mcp.toolCallTimeoutMs
       : AppConfig.mcp.connectTimeoutMs;
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     const startedAt = Date.now();
-
     console.log(`[MCP] -> ${method} ${endpoint} (timeout ${timeoutMs}ms)`, params?.name ? { tool: params.name } : "");
 
     let response;
     try {
-      response = await fetch(endpoint, {
+      response = await fetchWithTimeout(endpoint, {
         method: "POST",
-        headers: headers,
-        signal: controller.signal,
+        headers,
         body: JSON.stringify({
           jsonrpc: "2.0",
           method: method,
           id: 1,
           params: params
         }),
-      });
+      }, timeoutMs);
     } catch (error) {
       const durationMs = Date.now() - startedAt;
-      if (error.name === "AbortError") {
+      if (error.isTimeout) {
         console.error(`[MCP] <- ${method} ${endpoint} TIMED OUT after ${durationMs}ms`);
         const timeoutError = new Error(`MCP request to ${endpoint} (${method}) timed out after ${timeoutMs}ms`);
         timeoutError.status = 504;
@@ -309,8 +305,6 @@ class MCPClient {
       }
       console.error(`[MCP] <- ${method} ${endpoint} network error after ${durationMs}ms:`, error.message);
       throw error;
-    } finally {
-      clearTimeout(timeoutId);
     }
 
     const durationMs = Date.now() - startedAt;

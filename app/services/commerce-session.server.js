@@ -144,23 +144,5 @@ function extractFirstValue(source, keys) {
     }
   }
 
-  const content = Array.isArray(source.content) ? source.content[0]?.text : null;
-  if (!content) return '';
-
-  try {
-    const parsedContent = typeof content === 'string' ? JSON.parse(content) : content;
-    return extractFirstValue(parsedContent, keys);
-  } catch (_error) {
-    return '';
-  }
+  return '';
 }
-
-export default {
-  loadOrCreateCommerceSession,
-  appendUserMessage,
-  applyIntent,
-  applyCatalogResults,
-  applyCartState,
-  applyCheckout,
-  getCommerceContext
-};

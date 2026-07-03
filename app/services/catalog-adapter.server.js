@@ -49,7 +49,3 @@ export function createCatalogAdapter(mcpClient) {
     getProduct
   };
 }
-
-export default {
-  createCatalogAdapter
-};

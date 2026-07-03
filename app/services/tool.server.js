@@ -235,7 +235,3 @@ export function createToolService() {
     addToolResultToHistory
   };
 }
-
-export default {
-  createToolService
-};

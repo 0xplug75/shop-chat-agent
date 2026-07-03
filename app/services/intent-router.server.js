@@ -54,8 +54,3 @@ function toIntent(type) {
 }
 
 export { INTENT_TYPES };
-
-export default {
-  createIntentRouter,
-  INTENT_TYPES
-};

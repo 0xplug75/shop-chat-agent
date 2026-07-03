@@ -22,10 +22,12 @@ import { createCatalogAdapter } from "../services/catalog-adapter.server";
 import { createPolicyAdapter } from "../services/policy-adapter.server";
 import { createCartAdapter } from "../services/cart-adapter.server";
 import { createCheckoutAdapter } from "../services/checkout-adapter.server";
+import { buildCorsHeaders } from "../lib/cors.server";
+import { fetchWithTimeout } from "../lib/fetch-with-timeout.server";
 
 
 /**
- * Rract Router loader function for handling GET requests
+ * React Router loader function for handling GET requests
  */
 export async function loader({ request }) {
   // Handle OPTIONS requests (CORS preflight)
@@ -154,7 +156,7 @@ async function handleChatSession({
 
   console.log(`[chat] session: conversationId=${conversationId}, shopId=${shopId}, shopDomain(Origin)=${shopDomain}`);
 
-  const customerAccountUrls = await getCustomerAccountUrls(shopDomain, conversationId);
+  const customerAccountUrls = await resolveCustomerAccountUrls(shopDomain, conversationId);
   const mcpApiUrl = customerAccountUrls?.mcpApiUrl;
 
   const mcpClient = new MCPClient(
@@ -502,33 +504,15 @@ function extractToolText(toolResponse) {
 }
 
 /**
- * Fetch with an AbortController-based timeout.
- * @param {string} url - The URL to fetch
- * @param {number} timeoutMs - Timeout in milliseconds
- * @returns {Promise<Response>} The fetch response
- */
-async function fetchWithTimeout(url, timeoutMs) {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(url, { signal: controller.signal });
-  } catch (error) {
-    if (error.name === "AbortError") {
-      throw new Error(`Request to ${url} timed out after ${timeoutMs}ms`);
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}
-
-/**
- * Get the customer MCP API URL for a shop
+ * Resolve the customer account MCP/auth/token URLs for a shop, from the DB
+ * cache if present, otherwise via Shopify's well-known discovery endpoints.
+ * Named distinctly from db.server's getCustomerAccountUrls (imported here as
+ * getCustomerAccountUrlsFromDb) so the two aren't confused for each other.
  * @param {string} shopDomain - The shop domain
  * @param {string} conversationId - The conversation ID
- * @returns {string} The customer MCP API URL
+ * @returns {Promise<Object|null>} The customer account URLs, or null on failure
  */
-async function getCustomerAccountUrls(shopDomain, conversationId) {
+async function resolveCustomerAccountUrls(shopDomain, conversationId) {
   try {
     // Check if the customer account URL exists in the DB
     const existingUrls = await getCustomerAccountUrlsFromDb(conversationId);
@@ -540,10 +524,10 @@ async function getCustomerAccountUrls(shopDomain, conversationId) {
     const { hostname } = new URL(shopDomain);
     console.log(`[chat] resolving customer account URLs for hostname=${hostname}`);
 
-    // TEMP DEBUG: these well-known fetches had no timeout before, so an
-    // unreachable/slow host would hang the whole request before MCP connect
-    // logs are ever reached.
-    const wellKnownFetch = (path) => fetchWithTimeout(`https://${hostname}${path}`, 10000).then(res => res.json());
+    // These well-known fetches are timeout-guarded so an unreachable/slow
+    // host surfaces as an error instead of hanging the whole request before
+    // MCP connect is ever attempted.
+    const wellKnownFetch = (path) => fetchWithTimeout(`https://${hostname}${path}`, {}, 10000).then(res => res.json());
 
     const urls = await Promise.all([
       wellKnownFetch('/.well-known/customer-account-api'),
@@ -578,16 +562,10 @@ async function getCustomerAccountUrls(shopDomain, conversationId) {
  * @returns {Object} CORS headers object
  */
 function getCorsHeaders(request) {
-  const origin = request.headers.get("Origin") || "*";
-  const requestHeaders = request.headers.get("Access-Control-Request-Headers") || "Content-Type, Accept";
-
-  return {
-    "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": requestHeaders,
-    "Access-Control-Allow-Credentials": "true",
-    "Access-Control-Max-Age": "86400" // 24 hours
-  };
+  return buildCorsHeaders(request, {
+    methods: "GET, POST, OPTIONS",
+    credentials: true
+  });
 }
 
 /**
@@ -596,15 +574,15 @@ function getCorsHeaders(request) {
  * @returns {Object} SSE headers object
  */
 function getSseHeaders(request) {
-  const origin = request.headers.get("Origin") || "*";
-
   return {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache",
     "Connection": "keep-alive",
-    "Access-Control-Allow-Credentials": "true",
-    "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Methods": "GET,OPTIONS,POST",
-    "Access-Control-Allow-Headers": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version"
+    ...buildCorsHeaders(request, {
+      methods: "GET,OPTIONS,POST",
+      allowedHeaders: "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version",
+      credentials: true,
+      maxAge: null
+    })
   };
 }

@@ -19,7 +19,3 @@ export function createPolicyAdapter(mcpClient) {
 
   return { searchPolicies };
 }
-
-export default {
-  createPolicyAdapter
-};

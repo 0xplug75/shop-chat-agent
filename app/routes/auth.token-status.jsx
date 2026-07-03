@@ -1,4 +1,5 @@
 import { getCustomerToken } from "../db.server";
+import { buildCorsHeaders } from "../lib/cors.server";
 
 /**
  * API endpoint for checking if a customer token is available for a given conversation ID
@@ -40,7 +41,7 @@ export async function loader({ request }) {
       });
     }
   } catch (error) {
-    console.error("Error checking token status:", error);
+    console.error("[auth] Error checking token status:", error);
     return new Response(JSON.stringify({
       status: "error",
       message: "Failed to check token status"
@@ -55,14 +56,10 @@ export async function loader({ request }) {
  * Helper to add CORS headers to the response
  */
 function corsHeaders(request) {
-  const origin = request.headers.get("Origin") || "*";
-
-  return {
-    "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Methods": "GET, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Accept",
-    "Access-Control-Max-Age": "86400"
-  };
+  return buildCorsHeaders(request, {
+    methods: "GET, OPTIONS",
+    allowedHeaders: "Content-Type, Accept"
+  });
 }
 
 // Handle OPTIONS requests for CORS preflight

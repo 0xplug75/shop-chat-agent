@@ -4,6 +4,16 @@ import { createBusinessMessageInterpreter } from "./business-message-interpreter
 /**
  * Cart Adapter
  * Wraps Shopify cart tools and preserves full-cart PUT semantics.
+ *
+ * STATUS: not yet wired into the live request path. chat.jsx's onToolUse
+ * handler currently lets Claude call get_cart/update_cart directly through
+ * mcpClient.callTool() and post-processes the result inline in
+ * applyCommerceToolResult(), bypassing this adapter (and, transitively,
+ * business-message-interpreter.server.js, whose only caller is this file).
+ * Kept intentionally as the reserved cart leg of the adapter-based commerce
+ * architecture (parity with catalog-adapter/policy-adapter/checkout-adapter)
+ * — see docs/architecture-notes/cart-adapter-wiring-gap.md for the wiring
+ * plan and why it hasn't been done yet.
  */
 export function createCartAdapter(mcpClient) {
   const businessMessageInterpreter = createBusinessMessageInterpreter();

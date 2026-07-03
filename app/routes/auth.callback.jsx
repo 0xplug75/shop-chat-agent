@@ -30,9 +30,9 @@ export async function loader({ request }) {
         expiresAt
       );
 
-      console.log('Stored customer token in database for conversation:', conversationId);
+      console.log('[auth] Stored customer token in database for conversation:', conversationId);
     } catch (error) {
-      console.error('Failed to store token in database:', error);
+      console.error('[auth] Failed to store token in database:', error);
       // Continue anyway to not disrupt user flow
     }
 
@@ -78,8 +78,8 @@ export async function loader({ request }) {
       }
     });
   } catch (error) {
-    console.error("Error exchanging code for token:", error);
-    console.log("shopId", shopId);
+    console.error("[auth] Error exchanging code for token:", error);
+    console.log("[auth] shopId:", shopId);
     return new Response(JSON.stringify({ error: "Failed to obtain access token" }), { status: 500 });
   }
 }
@@ -93,7 +93,7 @@ async function exchangeCodeForToken(code, state) {
   const clientId = process.env.SHOPIFY_API_KEY;
   const [conversationId, shopId] = state.split("-");
   if (!clientId || !shopId) {
-    throw new Error("SHOPIFY_CLIENT_ID and SHOPIFY_SHOP_ID environment variables are required");
+    throw new Error("SHOPIFY_API_KEY environment variable and a shopId (from the OAuth state parameter) are both required");
   }
 
   const redirectUri = process.env.REDIRECT_URL;
@@ -112,11 +112,11 @@ async function exchangeCodeForToken(code, state) {
     if (verifierRecord) {
       codeVerifier = verifierRecord.verifier;
     } else {
-      console.warn("Code verifier not found for state:", state);
+      console.warn("[auth] Code verifier not found for state:", state);
       // Proceed anyway, since we might be using an older flow without PKCE
     }
   } catch (error) {
-    console.error("Error retrieving code verifier:", error);
+    console.error("[auth] Error retrieving code verifier:", error);
     // Proceed anyway and attempt the token exchange
   }
 
@@ -147,8 +147,8 @@ async function exchangeCodeForToken(code, state) {
   });
 
   if (!response.ok) {
-    console.log("Request id", response.headers.get("x-request-id"));
-    console.log("conversation_id", conversationId);
+    console.log("[auth] Request id:", response.headers.get("x-request-id"));
+    console.log("[auth] conversation_id:", conversationId);
     const errorText = await response.text();
     throw new Error(`Token exchange failed: ${response.status} ${errorText}`);
   }

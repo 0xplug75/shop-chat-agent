@@ -1,6 +1,7 @@
 /**
  * Authentication service for handling OAuth and PKCE flows
  */
+import { storeCodeVerifier, getCustomerAccountUrls } from "./db.server";
 
 /**
  * Generate authorization URL for the customer
@@ -8,8 +9,6 @@
  * @returns {Promise<Object>} - Object containing the auth URL and conversation ID
  */
 export async function generateAuthUrl(conversationId, shopId) {
-  const { storeCodeVerifier } = await import('./db.server');
-
   // Generate authorization URL for the customer
   const clientId = process.env.SHOPIFY_API_KEY;
   const scope = "customer-account-mcp-api:full";
@@ -29,7 +28,7 @@ export async function generateAuthUrl(conversationId, shopId) {
   try {
     await storeCodeVerifier(state, verifier);
   } catch (error) {
-    console.error('Failed to store code verifier:', error);
+    console.error('[auth] Failed to store code verifier:', error);
   }
 
   // Set code_challenge and code_challenge_method parameters
@@ -56,7 +55,6 @@ export async function generateAuthUrl(conversationId, shopId) {
  * @returns {Promise<string|null>} - The base auth URL or null if not found
  */
 async function getBaseAuthUrl(conversationId) {
-  const { getCustomerAccountUrls } = await import('./db.server');
   const { authorizationUrl } = await getCustomerAccountUrls(conversationId);
 
   return authorizationUrl;

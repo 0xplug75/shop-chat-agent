@@ -88,11 +88,11 @@ export function createStreamManager(encoder, controller) {
  */
 export function createSseStream(streamHandler) {
   const encoder = new TextEncoder();
-  
+
   return new ReadableStream({
     async start(controller) {
       const streamManager = createStreamManager(encoder, controller);
-      
+
       try {
         await streamHandler(streamManager);
       } catch (error) {
@@ -103,8 +103,3 @@ export function createSseStream(streamHandler) {
     }
   });
 }
-
-export default {
-  createSseStream,
-  createStreamManager
-};
