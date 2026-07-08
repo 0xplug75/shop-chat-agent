@@ -12,6 +12,12 @@ const VALID_WIDGET_LAYOUTS = new Set([
   "fullscreen"
 ]);
 
+const VALID_ENTRY_BEHAVIORS = new Set([
+  "auto",
+  "choice",
+  "direct"
+]);
+
 const VALID_BUNDLE_STRATEGIES = new Set([
   "none",
   "complementary",
@@ -60,6 +66,7 @@ export function validateMerchantConfig(config) {
   requireObject(config.widget?.behavior, "widget.behavior", errors);
   requireBoolean(config.widget?.behavior?.openOnLoad, "widget.behavior.openOnLoad", errors);
   requireBoolean(config.widget?.behavior?.showQuickActions, "widget.behavior.showQuickActions", errors);
+  requireEnum(config.widget?.behavior?.entryBehavior, "widget.behavior.entryBehavior", VALID_ENTRY_BEHAVIORS, errors);
   requireBoolean(config.widget?.behavior?.allowFullscreen, "widget.behavior.allowFullscreen", errors);
 
   requireObject(config.shopping, "shopping", errors);

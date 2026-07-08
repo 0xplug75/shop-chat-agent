@@ -135,6 +135,7 @@ export default function Index() {
               items={[
                 ["Position", formatPosition(config.storefront.position)],
                 ["Type", formatLayout(config.storefront.layout)],
+                ["Entry behavior", formatPolicy(config.storefront.behavior.entryBehavior || "auto")],
                 ["Open on load", config.storefront.behavior.openOnLoad ? "Enabled" : "Disabled"],
                 ["Quick actions", config.storefront.behavior.showQuickActions ? "Visible" : "Hidden"]
               ]}

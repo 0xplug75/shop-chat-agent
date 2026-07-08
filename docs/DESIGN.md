@@ -101,6 +101,7 @@ Belongs here:
 - Primary button label.
 - Open automatically.
 - Show quick actions.
+- Entry behavior: auto, choice card, or direct chat.
 - Backend URL only while development still depends on Shopify CLI tunnels or app proxy setup.
 
 Does not belong here long term:
@@ -238,6 +239,7 @@ Goal:
 Fields:
 - Widget type.
 - Position.
+- Entry behavior.
 - Open on load.
 - Quick actions.
 - Visual preview.
@@ -284,6 +286,7 @@ Behavior:
 - Bubble opens choice panel.
 - Shopper selects chat mode.
 - Chat opens in large modal.
+- Merchant can override entry behavior to direct chat when needed.
 
 ### Side Panel
 
@@ -295,6 +298,7 @@ Behavior:
 - Bubble opens the chat directly.
 - Panel slides from the right.
 - Product cards remain inside chat.
+- Dock side follows the selected left or right position.
 
 ### Inline Section
 
@@ -306,6 +310,7 @@ Behavior:
 - Assistant appears as a section after the first main content section.
 - Bubble is hidden.
 - Choice panel is visible by default unless open-on-load is enabled.
+- Direct chat can be selected when the merchant wants the inline block to start as a conversation.
 
 ### Fullscreen
 

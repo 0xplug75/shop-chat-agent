@@ -33,6 +33,7 @@
           behavior: {
             openOnLoad: window.shopChatConfig?.widget?.behavior?.openOnLoad || false,
             showQuickActions: window.shopChatConfig?.widget?.behavior?.showQuickActions !== false,
+            entryBehavior: window.shopChatConfig?.widget?.behavior?.entryBehavior || 'auto',
             allowFullscreen: true
           }
         }
@@ -288,11 +289,17 @@
       applyWidgetPosition: function(container, position) {
         const supportedPositions = ['bottom-right', 'bottom-left', 'top-right', 'top-left'];
         const safePosition = supportedPositions.includes(position) ? position : 'bottom-right';
+        const dockSide = safePosition.includes('left') ? 'left' : 'right';
+        const dockOrigin = safePosition.includes('top') ? 'top' : 'bottom';
 
         supportedPositions.forEach((item) => {
           container.classList.remove(`shop-ai-position-${item}`);
         });
+        container.classList.remove('shop-ai-dock-left', 'shop-ai-dock-right', 'shop-ai-origin-top', 'shop-ai-origin-bottom');
         container.classList.add(`shop-ai-position-${safePosition}`);
+        container.classList.add(`shop-ai-dock-${dockSide}`);
+        container.classList.add(`shop-ai-origin-${dockOrigin}`);
+        container.dataset.shopAiPosition = safePosition;
       },
 
       /**
@@ -355,6 +362,10 @@
       },
 
       opensDirectly: function() {
+        const behavior = this.getWidgetBehavior();
+        if (behavior.entryBehavior === 'direct') return true;
+        if (behavior.entryBehavior === 'choice') return false;
+
         const layout = this.getWidgetLayout();
         return layout === 'side-panel' || layout === 'fullscreen';
       },
@@ -362,6 +373,11 @@
       applyInitialWidgetBehavior: function() {
         const behavior = this.getWidgetBehavior();
         const layout = this.getWidgetLayout();
+
+        if (layout === 'inline' && behavior.entryBehavior === 'direct') {
+          window.setTimeout(() => this.openChatMode(), 250);
+          return;
+        }
 
         if (layout === 'inline' && !behavior.openOnLoad) {
           this.openChoicePanel();

@@ -2,7 +2,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
 <div
-  class="shop-ai-chat-container"
+  class="shop-ai-chat-container shop-ai-layout-{{ block.settings.widget_layout }} shop-ai-position-{{ block.settings.widget_position }}"
+  data-shop-ai-layout="{{ block.settings.widget_layout }}"
+  data-shop-ai-position="{{ block.settings.widget_position }}"
   style="
     --shop-ai-primary: {{ block.settings.chat_bubble_color }};
     --shop-ai-background: {{ block.settings.widget_background_color }};
@@ -76,7 +78,8 @@
       },
       behavior: {
         openOnLoad: {{ block.settings.open_on_load | json }},
-        showQuickActions: {{ block.settings.show_quick_actions | json }}
+        showQuickActions: {{ block.settings.show_quick_actions | json }},
+        entryBehavior: {{ block.settings.entry_behavior | json }}
       }
     }
   };
@@ -88,6 +91,10 @@
   "name": "AI Chat Assistant",
   "target": "body",
   "settings": [
+    {
+      "type": "header",
+      "content": "Widget experience"
+    },
     {
       "type": "color",
       "id": "chat_bubble_color",
@@ -155,6 +162,27 @@
       "default": "bottom-right"
     },
     {
+      "type": "select",
+      "id": "entry_behavior",
+      "label": "Entry behavior",
+      "info": "Auto uses the best default for each widget type. Choice opens the shopping choice card first. Direct opens chat immediately.",
+      "options": [
+        {
+          "value": "auto",
+          "label": "Auto"
+        },
+        {
+          "value": "choice",
+          "label": "Show choice card"
+        },
+        {
+          "value": "direct",
+          "label": "Open chat directly"
+        }
+      ],
+      "default": "auto"
+    },
+    {
       "type": "text",
       "id": "welcome_message",
       "label": "Welcome Message",
@@ -167,6 +195,10 @@
       "default": "Shop with chat"
     },
     {
+      "type": "header",
+      "content": "Behavior"
+    },
+    {
       "type": "checkbox",
       "id": "open_on_load",
       "label": "Open automatically",
@@ -177,6 +209,10 @@
       "id": "show_quick_actions",
       "label": "Show quick actions",
       "default": true
+    },
+    {
+      "type": "header",
+      "content": "Assistant"
     },
     {
       "type": "select",
@@ -197,6 +233,10 @@
         }
       ],
       "default": "agenticBuyingAssistant"
+    },
+    {
+      "type": "header",
+      "content": "Development"
     },
     {
       "type": "text",

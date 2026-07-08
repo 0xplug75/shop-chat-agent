@@ -26,6 +26,7 @@ export const merchantDefaults = {
     behavior: {
       openOnLoad: false,
       showQuickActions: true,
+      entryBehavior: "auto",
       allowFullscreen: true
     }
   },
