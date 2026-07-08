@@ -1,7 +1,14 @@
 {{ 'chat.css' | asset_url | stylesheet_tag }}
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-<div class="shop-ai-chat-container" style="--shop-ai-primary: {{ block.settings.chat_bubble_color }}">
+<div
+  class="shop-ai-chat-container"
+  style="
+    --shop-ai-primary: {{ block.settings.chat_bubble_color }};
+    --shop-ai-background: {{ block.settings.widget_background_color }};
+    --shop-ai-text: {{ block.settings.widget_text_color }};
+  "
+>
   <div class="shop-ai-chat-bubble">
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
@@ -16,7 +23,7 @@
     <h2>How do you want to shop?</h2>
     <p>Browse the store yourself, or describe what you need and let the agent pull matching products into the chat.</p>
     <div class="shop-ai-choice-actions">
-      <button class="shop-ai-start-chat" type="button">Shop with chat</button>
+      <button class="shop-ai-start-chat" type="button">{{ block.settings.primary_cta_label }}</button>
       <button class="shop-ai-continue-browsing" type="button">Continue browsing</button>
     </div>
   </div>
@@ -57,7 +64,21 @@
   window.shopChatConfig = {
     promptType: {{ block.settings.system_prompt | json }},
     welcomeMessage: {{ block.settings.welcome_message | json }},
-    backendUrl: {{ block.settings.backend_url | json }}
+    backendUrl: {{ block.settings.backend_url | json }},
+    widget: {
+      layout: {{ block.settings.widget_layout | json }},
+      position: {{ block.settings.widget_position | json }},
+      primaryCtaLabel: {{ block.settings.primary_cta_label | json }},
+      colors: {
+        primary: {{ block.settings.chat_bubble_color | json }},
+        background: {{ block.settings.widget_background_color | json }},
+        text: {{ block.settings.widget_text_color | json }}
+      },
+      behavior: {
+        openOnLoad: {{ block.settings.open_on_load | json }},
+        showQuickActions: {{ block.settings.show_quick_actions | json }}
+      }
+    }
   };
   window.shopId = {{ shop.id }};
 </script>
@@ -70,8 +91,68 @@
     {
       "type": "color",
       "id": "chat_bubble_color",
-      "label": "Chat Bubble Color",
+      "label": "Accent color",
       "default": "#5046e4"
+    },
+    {
+      "type": "color",
+      "id": "widget_background_color",
+      "label": "Widget background",
+      "default": "#ffffff"
+    },
+    {
+      "type": "color",
+      "id": "widget_text_color",
+      "label": "Widget text",
+      "default": "#111827"
+    },
+    {
+      "type": "select",
+      "id": "widget_layout",
+      "label": "Widget type",
+      "options": [
+        {
+          "value": "bubble",
+          "label": "Bubble"
+        },
+        {
+          "value": "side-panel",
+          "label": "Side panel"
+        },
+        {
+          "value": "inline",
+          "label": "Inline section"
+        },
+        {
+          "value": "fullscreen",
+          "label": "Fullscreen chat"
+        }
+      ],
+      "default": "bubble"
+    },
+    {
+      "type": "select",
+      "id": "widget_position",
+      "label": "Position",
+      "options": [
+        {
+          "value": "bottom-right",
+          "label": "Bottom right"
+        },
+        {
+          "value": "bottom-left",
+          "label": "Bottom left"
+        },
+        {
+          "value": "top-right",
+          "label": "Top right"
+        },
+        {
+          "value": "top-left",
+          "label": "Top left"
+        }
+      ],
+      "default": "bottom-right"
     },
     {
       "type": "text",
@@ -80,9 +161,27 @@
       "default": "Tell me what you are shopping for. I will search the catalog, compare the best matches, and help you add the right product to cart."
     },
     {
+      "type": "text",
+      "id": "primary_cta_label",
+      "label": "Primary button label",
+      "default": "Shop with chat"
+    },
+    {
+      "type": "checkbox",
+      "id": "open_on_load",
+      "label": "Open automatically",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "show_quick_actions",
+      "label": "Show quick actions",
+      "default": true
+    },
+    {
       "type": "select",
       "id": "system_prompt",
-      "label": "System Prompt",
+      "label": "Assistant mode",
       "options": [
         {
           "value": "standardAssistant",

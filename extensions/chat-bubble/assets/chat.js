@@ -26,11 +26,13 @@
           ]
         },
         widget: {
-          position: 'bottom-right',
-          layout: 'bubble-modal-fullscreen',
-          colors: {},
+          position: window.shopChatConfig?.widget?.position || 'bottom-right',
+          layout: window.shopChatConfig?.widget?.layout || 'bubble',
+          primaryCtaLabel: window.shopChatConfig?.widget?.primaryCtaLabel || 'Shop with chat',
+          colors: window.shopChatConfig?.widget?.colors || {},
           behavior: {
-            showQuickActions: true,
+            openOnLoad: window.shopChatConfig?.widget?.behavior?.openOnLoad || false,
+            showQuickActions: window.shopChatConfig?.widget?.behavior?.showQuickActions !== false,
             allowFullscreen: true
           }
         }
@@ -76,16 +78,33 @@
       },
 
       getEffectiveConfig: function() {
-        return this.mergeConfig(this.defaults, this.merchantConfig || {});
+        const mergedConfig = this.mergeConfig(this.defaults, this.merchantConfig || {});
+        const themeWidgetConfig = window.shopChatConfig?.widget;
+
+        if (themeWidgetConfig) {
+          mergedConfig.widget = this.mergeConfig(mergedConfig.widget || {}, themeWidgetConfig);
+        }
+
+        if (window.shopChatConfig?.welcomeMessage) {
+          mergedConfig.assistant = {
+            ...(mergedConfig.assistant || {}),
+            welcomeMessage: window.shopChatConfig.welcomeMessage
+          };
+        }
+
+        return mergedConfig;
       },
 
       applyToWindowConfig: function(config) {
+        const themeWidgetConfig = window.shopChatConfig?.widget || {};
+        const mergedWidgetConfig = this.mergeConfig(config.widget || this.defaults.widget, themeWidgetConfig);
+
         window.shopChatConfig = {
           ...(window.shopChatConfig || {}),
           assistantName: config.assistant?.name || this.defaults.assistant.name,
-          welcomeMessage: config.assistant?.welcomeMessage || window.shopChatConfig?.welcomeMessage || this.defaults.assistant.welcomeMessage,
+          welcomeMessage: window.shopChatConfig?.welcomeMessage || config.assistant?.welcomeMessage || this.defaults.assistant.welcomeMessage,
           quickActions: config.assistant?.quickActions || this.defaults.assistant.quickActions,
-          widget: config.widget || this.defaults.widget
+          widget: mergedWidgetConfig
         };
       },
 
@@ -155,6 +174,8 @@
         if (this.isMobile) {
           this.setupMobileViewport();
         }
+
+        this.applyInitialWidgetBehavior();
       },
 
       /**
@@ -173,8 +194,13 @@
           promptButtons
         } = this.elements;
 
-        // Open the shopping choice panel first, then let the shopper choose chat mode.
-        chatBubble.addEventListener('click', () => this.openChoicePanel());
+        chatBubble?.addEventListener('click', () => {
+          if (this.opensDirectly()) {
+            this.openChatMode();
+          } else {
+            this.openChoicePanel();
+          }
+        });
 
         choiceCloseButton?.addEventListener('click', () => this.closeChoicePanel());
         continueBrowsingButton?.addEventListener('click', () => this.closeChoicePanel());
@@ -240,12 +266,16 @@
         const colors = widgetConfig.colors || {};
 
         this.applyWidgetPosition(container, widgetConfig.position);
-        container.dataset.shopAiLayout = widgetConfig.layout || 'bubble-modal-fullscreen';
+        this.applyWidgetLayout(container, widgetConfig.layout);
 
         if (colors.primary) container.style.setProperty('--shop-ai-primary', colors.primary);
         if (colors.background) container.style.setProperty('--shop-ai-background', colors.background);
         if (colors.text) container.style.setProperty('--shop-ai-text', colors.text);
         if (colors.accent) container.style.setProperty('--shop-ai-accent', colors.accent);
+
+        if (this.elements.startChatButton && widgetConfig.primaryCtaLabel) {
+          this.elements.startChatButton.textContent = widgetConfig.primaryCtaLabel;
+        }
 
         this.renderQuickActions(assistantConfig.quickActions, widgetConfig.behavior);
       },
@@ -263,6 +293,84 @@
           container.classList.remove(`shop-ai-position-${item}`);
         });
         container.classList.add(`shop-ai-position-${safePosition}`);
+      },
+
+      /**
+       * Apply the active storefront widget layout.
+       * @param {HTMLElement} container - The main container element
+       * @param {string} layout - Merchant widget layout
+       */
+      applyWidgetLayout: function(container, layout) {
+        const safeLayout = this.normalizeLayout(layout);
+        const supportedLayouts = ['bubble', 'side-panel', 'inline', 'fullscreen'];
+
+        supportedLayouts.forEach((item) => {
+          container.classList.remove(`shop-ai-layout-${item}`);
+        });
+
+        container.dataset.shopAiLayout = safeLayout;
+        container.classList.add(`shop-ai-layout-${safeLayout}`);
+
+        if (safeLayout === 'inline') {
+          this.mountInlineWidget(container);
+        }
+      },
+
+      normalizeLayout: function(layout) {
+        const layoutMap = {
+          'bubble-modal-fullscreen': 'bubble',
+          'bubble_modal_fullscreen': 'bubble',
+          'side_panel': 'side-panel',
+          'side-panel': 'side-panel',
+          'inline': 'inline',
+          'fullscreen': 'fullscreen',
+          'bubble': 'bubble'
+        };
+
+        return layoutMap[layout] || 'bubble';
+      },
+
+      mountInlineWidget: function(container) {
+        if (container.dataset.shopAiInlineMounted === 'true') return;
+
+        const target =
+          document.querySelector('main .shopify-section') ||
+          document.querySelector('#MainContent .shopify-section') ||
+          document.querySelector('main') ||
+          document.querySelector('#MainContent');
+
+        if (target?.parentNode) {
+          target.parentNode.insertBefore(container, target.nextSibling);
+        }
+
+        container.dataset.shopAiInlineMounted = 'true';
+      },
+
+      getWidgetBehavior: function() {
+        return ShopAIChat.Config.getEffectiveConfig().widget?.behavior || {};
+      },
+
+      getWidgetLayout: function() {
+        return this.normalizeLayout(ShopAIChat.Config.getEffectiveConfig().widget?.layout);
+      },
+
+      opensDirectly: function() {
+        const layout = this.getWidgetLayout();
+        return layout === 'side-panel' || layout === 'fullscreen';
+      },
+
+      applyInitialWidgetBehavior: function() {
+        const behavior = this.getWidgetBehavior();
+        const layout = this.getWidgetLayout();
+
+        if (layout === 'inline' && !behavior.openOnLoad) {
+          this.openChoicePanel();
+          return;
+        }
+
+        if (behavior.openOnLoad) {
+          window.setTimeout(() => this.openChatMode(), 600);
+        }
       },
 
       /**
@@ -314,6 +422,8 @@
        */
       openChoicePanel: function() {
         const { choicePanel, chatWindow } = this.elements;
+        const layout = this.getWidgetLayout();
+
         if (!choicePanel) {
           this.openChatMode();
           return;
@@ -326,6 +436,10 @@
 
         choicePanel.classList.add('active');
         choicePanel.setAttribute('aria-hidden', 'false');
+
+        if (layout === 'inline') {
+          document.body.classList.remove('shop-ai-chat-open');
+        }
       },
 
       /**
@@ -347,7 +461,10 @@
 
         this.closeChoicePanel();
         chatWindow.classList.add('active');
-        document.body.classList.add('shop-ai-chat-open');
+
+        if (this.getWidgetLayout() !== 'inline') {
+          document.body.classList.add('shop-ai-chat-open');
+        }
 
         if (this.isMobile) {
           setTimeout(() => chatInput.focus(), 500);
@@ -366,6 +483,10 @@
 
         chatWindow.classList.remove('active');
         document.body.classList.remove('shop-ai-chat-open');
+
+        if (this.getWidgetLayout() === 'inline') {
+          this.openChoicePanel();
+        }
 
         // On mobile, blur input to hide keyboard and enable body scrolling
         if (this.isMobile) {

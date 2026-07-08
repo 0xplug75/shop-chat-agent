@@ -6,10 +6,10 @@ const VALID_WIDGET_POSITIONS = new Set([
 ]);
 
 const VALID_WIDGET_LAYOUTS = new Set([
-  "bubble-modal-fullscreen",
+  "bubble",
   "side-panel",
   "inline",
-  "quiz-flow"
+  "fullscreen"
 ]);
 
 const VALID_BUNDLE_STRATEGIES = new Set([
@@ -122,4 +122,3 @@ function requireEnum(value, path, allowedValues, errors) {
     errors.push(`${path} must be one of: ${Array.from(allowedValues).join(", ")}`);
   }
 }
-

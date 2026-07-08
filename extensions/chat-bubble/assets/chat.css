@@ -32,6 +32,19 @@
     top: 20px;
   }
 
+  .shop-ai-chat-container.shop-ai-layout-inline {
+    bottom: auto;
+    left: auto;
+    margin: 36px auto;
+    max-width: 1180px;
+    padding: 0 20px;
+    position: relative;
+    right: auto;
+    top: auto;
+    width: 100%;
+    z-index: 5;
+  }
+
   .shop-ai-position-bottom-left .shop-ai-choice-panel,
   .shop-ai-position-bottom-left .shop-ai-chat-window,
   .shop-ai-position-top-left .shop-ai-choice-panel,
@@ -165,6 +178,10 @@
     transform: scale(1.05);
   }
 
+  .shop-ai-layout-inline .shop-ai-chat-bubble {
+    display: none;
+  }
+
   .shop-ai-chat-bubble svg {
     width: 30px;
     height: 30px;
@@ -238,6 +255,69 @@
     opacity: 1;
     pointer-events: all;
     transform: translateY(0);
+  }
+
+  .shop-ai-layout-side-panel .shop-ai-choice-panel,
+  .shop-ai-layout-side-panel .shop-ai-chat-window {
+    bottom: 0;
+    height: 100vh;
+    height: calc(var(--viewport-height, 100vh));
+    max-height: none;
+    min-height: 100vh;
+    position: fixed;
+    right: 0;
+    top: 0;
+    width: min(460px, 100vw);
+  }
+
+  .shop-ai-layout-side-panel .shop-ai-choice-panel {
+    border-radius: 0;
+    display: grid;
+    align-content: center;
+    padding: 28px;
+  }
+
+  .shop-ai-layout-side-panel .shop-ai-chat-window {
+    border-radius: 0;
+    transform: translateX(100%);
+  }
+
+  .shop-ai-layout-side-panel .shop-ai-chat-window.active {
+    transform: translateX(0);
+  }
+
+  .shop-ai-layout-fullscreen .shop-ai-chat-window {
+    bottom: 24px;
+    height: calc(var(--viewport-height, 100vh) - 48px);
+    left: 24px;
+    max-height: none;
+    min-height: 0;
+    position: fixed;
+    right: 24px;
+    top: 24px;
+    width: auto;
+  }
+
+  .shop-ai-layout-inline .shop-ai-choice-panel,
+  .shop-ai-layout-inline .shop-ai-chat-window {
+    bottom: auto;
+    box-shadow: 0 16px 44px rgba(15, 23, 42, 0.12);
+    margin: 0 auto;
+    position: relative;
+    right: auto;
+    top: auto;
+    width: min(960px, 100%);
+  }
+
+  .shop-ai-layout-inline .shop-ai-choice-panel {
+    display: grid;
+    gap: 4px;
+  }
+
+  .shop-ai-layout-inline .shop-ai-chat-window {
+    height: 640px;
+    max-height: 78vh;
+    min-height: 520px;
   }
   
   @media (max-width: 480px) {

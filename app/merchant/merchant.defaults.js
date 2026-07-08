@@ -16,7 +16,7 @@ export const merchantDefaults = {
   },
   widget: {
     position: "bottom-right",
-    layout: "bubble-modal-fullscreen",
+    layout: "bubble",
     colors: {
       primary: "#4f46e5",
       background: "#ffffff",
@@ -71,4 +71,3 @@ export const merchantDefaults = {
     }
   }
 };
-
