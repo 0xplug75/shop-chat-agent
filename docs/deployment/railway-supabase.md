@@ -138,7 +138,8 @@ Update the production Shopify app configuration before releasing a version:
 
 - `application_url`
 - OAuth redirect URLs
-- Customer Account redirect URI
+- Customer Account redirect URI (`/customer-auth/callback`, kept separate from
+  Shopify's admin OAuth callback at `/auth/callback`)
 - webhook URI `/api/webhooks`
 - App Proxy destination `/widget`
 - App Proxy prefix/subpath

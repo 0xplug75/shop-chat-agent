@@ -200,7 +200,7 @@ Dependencies:
 - `app/routes/app._index.jsx`
 - `app/routes/chat.jsx`
 - `app/routes/merchant.config.jsx`
-- `app/routes/auth.callback.jsx`
+- `app/routes/customer-auth.callback.jsx`
 - `app/routes/auth.token-status.jsx`
 - `app/routes/auth.$.jsx`
 - `app/routes/api.webhooks.jsx`

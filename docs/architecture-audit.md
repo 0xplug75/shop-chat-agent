@@ -68,7 +68,7 @@ Shopify services
 
 ### Customer OAuth
 
-`app/auth.server.js` concatenates conversation and shop identifiers into one OAuth state. `app/routes/auth.callback.jsx` parses it with `split("-")`, retrieves a separately stored verifier, exchanges the code, and stores the customer token in plaintext.
+`app/auth.server.js` concatenates conversation and shop identifiers into one OAuth state. `app/routes/customer-auth.callback.jsx` parses it with `split("-")`, retrieves a separately stored verifier, exchanges the code, and stores the customer token in plaintext.
 
 ## Confirmed risks
 

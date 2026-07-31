@@ -222,6 +222,7 @@ model Message {
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([shopId, conversationId, createdAt])
+  @@index([conversationId])
 }
 
 model CommerceSession {
@@ -292,6 +293,7 @@ model CustomerToken {
   @@unique([shopId, customerReference])
   @@index([shopId, conversationId])
   @@index([shopId, expiresAt])
+  @@index([conversationId])
 }
 
 model OAuthState {

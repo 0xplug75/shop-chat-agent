@@ -53,7 +53,7 @@ export async function generateCodeChallenge(verifier) {
 function getRedirectUri() {
   const configured = process.env.REDIRECT_URL;
   const appUrl = process.env.APP_URL || process.env.SHOPIFY_APP_URL;
-  const value = configured || (appUrl ? `${appUrl.replace(/\/$/, "")}/auth/callback` : "");
+  const value = configured || (appUrl ? `${appUrl.replace(/\/$/, "")}/customer-auth/callback` : "");
   const url = new URL(value);
   if (url.protocol !== "https:" && process.env.NODE_ENV === "production") {
     throw new Error("Customer OAuth redirect must use HTTPS");

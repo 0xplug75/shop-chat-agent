@@ -121,7 +121,7 @@ app/routes/app.assistant.jsx
 app/routes/app.commerce.jsx
 app/routes/app.knowledge.jsx
 app/routes/app.widget.jsx
-app/routes/auth.callback.jsx
+app/routes/customer-auth.callback.jsx
 app/routes/auth.token-status.jsx
 app/routes/chat.jsx
 app/routes/health.db.jsx
