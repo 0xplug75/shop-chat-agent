@@ -1,167 +1,110 @@
-import { getCodeVerifier, storeCustomerToken, getCustomerAccountUrls } from "../db.server";
+/* eslint-env node */
 
-/**
- * Handle OAuth callback from Shopify Customer API
- */
+import { OAuthCallbackQuerySchema, formatZodError } from "../contracts/commerce.schemas.server";
+import { consumeOAuthState, OAuthStateError } from "../services/oauth-state.server";
+import { getCustomerAccountUrls } from "../services/customer-account-urls.server";
+import { storeCustomerToken } from "../services/customer-token.server";
+import { createMerchantRequestContext } from "../security/merchant-context.server";
+import { assertTrustedShopifyUrl } from "../security/shopify-domain.server";
+import { fetchWithTimeout } from "../lib/fetch-with-timeout.server";
+import { createLogger } from "../lib/logger.server";
+
 export async function loader({ request }) {
-  const url = new URL(request.url);
-  const code = url.searchParams.get("code");
-  const state = url.searchParams.get("state");
-  const [conversationId, shopId] = state.split("-");
+  const requestId = crypto.randomUUID();
+  const logger = createLogger({ requestId });
+  const parsed = OAuthCallbackQuerySchema.safeParse(
+    Object.fromEntries(new URL(request.url).searchParams.entries())
+  );
 
-  if (!code) {
-    return new Response(JSON.stringify({ error: "Authorization code is missing" }), { status: 400 });
+  if (!parsed.success) {
+    logger.warn("Customer OAuth callback rejected", { validation: formatZodError(parsed.error) });
+    return jsonError("Invalid authorization callback", 400, requestId);
   }
 
   try {
-    // Exchange code for access token
-    const tokenResponse = await exchangeCodeForToken(code, state);
-
-    // Store token in database
-    try {
-      // Calculate expiration date based on expires_in (seconds)
-      const expiresAt = new Date();
-      expiresAt.setSeconds(expiresAt.getSeconds() + tokenResponse.expires_in);
-
-      // Store in database with conversation ID
-      await storeCustomerToken(
-        conversationId,
-        tokenResponse.access_token,
-        expiresAt
-      );
-
-      console.log('[auth] Stored customer token in database for conversation:', conversationId);
-    } catch (error) {
-      console.error('[auth] Failed to store token in database:', error);
-      // Continue anyway to not disrupt user flow
+    const state = await consumeOAuthState(parsed.data.state);
+    const context = createMerchantRequestContext({
+      shopId: state.shopId,
+      shopDomain: state.shop.shopDomain,
+      conversationId: state.conversationId,
+      requestId
+    });
+    const accountUrls = await getCustomerAccountUrls(context, state.conversationId);
+    if (!accountUrls?.tokenUrl || !state.codeVerifier || !state.redirectUri) {
+      throw new Error("Customer OAuth context is incomplete");
     }
 
-    // Instead of redirecting, return HTML that auto-closes the tab
-    return new Response(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Authentication Successful</title>
-        <script>
-          window.onload = function() {
-            // Show success message briefly before closing
-            document.getElementById('message').style.display = 'block';
-            // Close the tab after a short delay
-            setTimeout(function() {
-              window.close();
-              // In case window.close() doesn't work (common in some browsers)
-              document.getElementById('fallback').style.display = 'block';
-            }, 1500);
-          }
-        </script>
-        <style>
-          body { font-family: system-ui, sans-serif; text-align: center; padding-top: 100px; }
-          #message { display: none; }
-          #fallback { display: none; margin-top: 20px; }
-          .success { color: green; font-size: 18px; }
-        </style>
-      </head>
-      <body>
-        <div id="message">
-          <h2>Authentication Successful!</h2>
-          <p class="success">You've been authenticated successfully</p>
-          <p>This window will close automatically.</p>
-        </div>
-        <div id="fallback">
-          <p>If this window didn't close automatically, you can close it and return to your conversation.</p>
-        </div>
-      </body>
-      </html>
-    `, {
-      headers: {
-        "Content-Type": "text/html"
-      }
+    const tokenResponse = await exchangeCodeForToken({
+      code: parsed.data.code,
+      codeVerifier: state.codeVerifier,
+      redirectUri: state.redirectUri,
+      tokenUrl: accountUrls.tokenUrl,
+      shopDomain: context.shopDomain
     });
+    const expiresIn = Math.max(Number(tokenResponse.expires_in || 0), 60);
+    const customerReference = String(
+      tokenResponse.customer_id || tokenResponse.sub || `conversation:${state.conversationId}`
+    );
+
+    await storeCustomerToken(context, {
+      conversationId: state.conversationId,
+      customerReference,
+      accessToken: tokenResponse.access_token,
+      refreshToken: tokenResponse.refresh_token,
+      expiresAt: new Date(Date.now() + expiresIn * 1000)
+    });
+
+    logger.info("Customer OAuth completed", {
+      shopId: context.shopId,
+      conversationId: state.conversationId
+    });
+    return successHtml();
   } catch (error) {
-    console.error("[auth] Error exchanging code for token:", error);
-    console.log("[auth] shopId:", shopId);
-    return new Response(JSON.stringify({ error: "Failed to obtain access token" }), { status: 500 });
+    logger.warn("Customer OAuth failed", { error });
+    const status = error instanceof OAuthStateError ? 400 : 502;
+    return jsonError("Customer authorization could not be completed", status, requestId);
   }
 }
 
-/**
- * Exchange authorization code for access token
- * @param {string} code - The authorization code
- * @returns {Promise<Object>} - The token response
- */
-async function exchangeCodeForToken(code, state) {
+async function exchangeCodeForToken({ code, codeVerifier, redirectUri, tokenUrl, shopDomain }) {
   const clientId = process.env.SHOPIFY_API_KEY;
-  const [conversationId, shopId] = state.split("-");
-  if (!clientId || !shopId) {
-    throw new Error("SHOPIFY_API_KEY environment variable and a shopId (from the OAuth state parameter) are both required");
-  }
-
-  const redirectUri = process.env.REDIRECT_URL;
-
-  // Correct token URL format
-  const tokenUrl = await getTokenUrl(conversationId);
-
-  if (!tokenUrl) {
-    throw new Error("Token URL not found");
-  }
-
-  // Get the code verifier that corresponds to this authorization request from database
-  let codeVerifier = "";
-  try {
-    const verifierRecord = await getCodeVerifier(state);
-    if (verifierRecord) {
-      codeVerifier = verifierRecord.verifier;
-    } else {
-      console.warn("[auth] Code verifier not found for state:", state);
-      // Proceed anyway, since we might be using an older flow without PKCE
-    }
-  } catch (error) {
-    console.error("[auth] Error retrieving code verifier:", error);
-    // Proceed anyway and attempt the token exchange
-  }
-
-  const requestBody = {
+  if (!clientId) throw new Error("SHOPIFY_API_KEY is required");
+  const trustedTokenUrl = assertTrustedShopifyUrl(tokenUrl, { shopDomain });
+  const body = new URLSearchParams({
     grant_type: "authorization_code",
     client_id: clientId,
-    code: code,
-    redirect_uri: redirectUri
-  };
-
-  // Add code_verifier if we have it
-  if (codeVerifier) {
-    requestBody.code_verifier = codeVerifier;
-  }
-
-  // Format the request as x-www-form-urlencoded instead of JSON
-  const formData = new URLSearchParams();
-  for (const [key, value] of Object.entries(requestBody)) {
-    formData.append(key, value);
-  }
-
-  const response = await fetch(tokenUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded"
-    },
-    body: formData
+    code,
+    redirect_uri: redirectUri,
+    code_verifier: codeVerifier
   });
+  const response = await fetchWithTimeout(trustedTokenUrl.toString(), {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body
+  }, 15_000);
 
   if (!response.ok) {
-    console.log("[auth] Request id:", response.headers.get("x-request-id"));
-    console.log("[auth] conversation_id:", conversationId);
-    const errorText = await response.text();
-    throw new Error(`Token exchange failed: ${response.status} ${errorText}`);
+    const error = new Error("Customer token exchange was rejected");
+    error.status = response.status;
+    throw error;
   }
-
-  return response.json();
+  const payload = await response.json();
+  if (!payload?.access_token) throw new Error("Customer token response was invalid");
+  return payload;
 }
 
-/**
- * Get the token URL from the customer account URL
- * @param {string} conversationId - The conversation ID
- * @returns {Promise<string|null>} - The token URL or null if not found
- */
-async function getTokenUrl(conversationId) {
-  const { tokenUrl } = await getCustomerAccountUrls(conversationId);
-  return tokenUrl;
+function jsonError(message, status, requestId) {
+  return Response.json({ error: message, requestId }, { status });
+}
+
+function successHtml() {
+  return new Response(`<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Authentication successful</title></head>
+<body><main><h1>Authentication successful</h1><p>You can return to the store.</p></main><script>setTimeout(function(){window.close()},800)</script></body></html>`, {
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Content-Security-Policy": "default-src 'none'; script-src 'unsafe-inline'; style-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "Cache-Control": "no-store"
+    }
+  });
 }

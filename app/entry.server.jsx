@@ -4,8 +4,10 @@ import { ServerRouter } from "react-router";
 import { createReadableStreamFromReadable } from "@react-router/node";
 import { isbot } from "isbot";
 import { addDocumentResponseHeaders } from "./shopify.server";
+import { createLogger } from "./lib/logger.server";
 
 export const streamTimeout = 5000;
+const logger = createLogger({ component: "react-renderer" });
 
 export default async function handleRequest(
   request,
@@ -39,7 +41,7 @@ export default async function handleRequest(
         },
         onError(error) {
           responseStatusCode = 500;
-          console.error(error);
+          logger.error("Server render failed", { error });
         },
       },
     );

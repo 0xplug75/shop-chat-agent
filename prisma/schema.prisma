@@ -1,16 +1,58 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
 
-// Note that some adapters may set a maximum length for the String type by default, please ensure your strings are long
-// enough when changing adapters.
-// See https://www.prisma.io/docs/orm/reference/prisma-schema-reference#string for more information
 datasource db {
-  provider = "sqlite"
-  url      = "file:dev.sqlite"
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum ShopStatus {
+  ACTIVE
+  UNINSTALLED
+  SUSPENDED
+}
+
+enum KnowledgeSourceType {
+  SHOPIFY_CATALOG
+  STORE_POLICIES
+  FAQ
+  GUIDE
+  DOCUMENT
+  MANUAL
+}
+
+enum KnowledgeStatus {
+  ACTIVE
+  INACTIVE
+  PROCESSING
+  ERROR
+  ARCHIVED
+}
+
+enum ConversationStatus {
+  ACTIVE
+  COMPLETED
+  ABANDONED
+  EXPIRED
+}
+
+enum ConversationChannel {
+  STOREFRONT_WIDGET
+  ADMIN_PREVIEW
+  AGENT_EXTERNAL
+}
+
+enum JourneyStage {
+  DISCOVER
+  COMPARE
+  CONFIRM
+  CART
+  CHECKOUT
+  COMPLETED
+  ABANDONED
+  EXPIRED
 }
 
 model Session {
@@ -29,54 +71,274 @@ model Session {
   locale        String?
   collaborator  Boolean?  @default(false)
   emailVerified Boolean?  @default(false)
+
+  @@index([shop])
 }
 
-model CustomerToken {
-  id              String    @id
-  conversationId  String
-  accessToken     String
-  refreshToken    String?
-  expiresAt       DateTime
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+model Shop {
+  id               String     @id @default(cuid())
+  shopDomain       String     @unique
+  shopifyShopId    String?    @unique
+  storefrontOrigin String?
+  status           ShopStatus @default(ACTIVE)
+  installedAt      DateTime   @default(now())
+  uninstalledAt    DateTime?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
 
-  @@index([conversationId])
+  merchantConfig      MerchantConfig?
+  knowledgeSources    KnowledgeSource[]
+  knowledgeDocuments  KnowledgeDocument[]
+  knowledgeChunks     KnowledgeChunk[]
+  conversations       Conversation[]
+  messages            Message[]
+  commerceSessions    CommerceSession[]
+  commerceEvents      CommerceEvent[]
+  customerTokens      CustomerToken[]
+  oauthStates         OAuthState[]
+  customerAccountUrls CustomerAccountUrls[]
+  webhookReceipts     WebhookReceipt[]
+
+  @@index([status])
 }
 
-model CodeVerifier {
-  id              String    @id
-  state           String    @unique
-  verifier        String
-  createdAt       DateTime  @default(now())
-  expiresAt       DateTime
+model MerchantConfig {
+  id                  String   @id @default(cuid())
+  shopId              String   @unique
+  assistantName       String
+  personality         String   @db.Text
+  brandVoice          String   @db.Text
+  welcomeMessage      String   @db.Text
+  quickPrompts        Json
+  commerceRules       Json
+  recommendationRules Json
+  version             Int      @default(1)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
-  @@index([state])
+  shop Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+}
+
+model KnowledgeSource {
+  id           String              @id @default(cuid())
+  shopId       String
+  type         KnowledgeSourceType
+  name         String
+  status       KnowledgeStatus     @default(ACTIVE)
+  sourceUrl    String?
+  externalId   String?
+  lastSyncedAt DateTime?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  shop      Shop                @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  documents KnowledgeDocument[]
+
+  @@unique([shopId, type, externalId])
+  @@index([shopId, status])
+}
+
+model KnowledgeDocument {
+  id          String          @id @default(cuid())
+  shopId      String
+  sourceId    String
+  title       String
+  content     String          @db.Text
+  status      KnowledgeStatus @default(ACTIVE)
+  version     Int             @default(1)
+  checksum    String
+  metadata    Json?
+  publishedAt DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  shop   Shop             @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  source KnowledgeSource  @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  chunks KnowledgeChunk[]
+
+  @@unique([shopId, sourceId, checksum])
+  @@index([shopId, status])
+  @@index([sourceId])
+}
+
+model KnowledgeChunk {
+  id         String   @id @default(cuid())
+  shopId     String
+  documentId String
+  position   Int
+  content    String   @db.Text
+  tokenCount Int?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  shop     Shop              @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  document KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, position])
+  @@index([shopId, documentId])
 }
 
 model Conversation {
-  id        String    @id
-  messages  Message[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id         String              @id
+  shopId     String
+  customerId String?
+  visitorId  String?
+  status     ConversationStatus  @default(ACTIVE)
+  channel    ConversationChannel @default(STOREFRONT_WIDGET)
+  startedAt  DateTime            @default(now())
+  endedAt    DateTime?
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  shop                Shop                 @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  messages            Message[]
+  commerceSession     CommerceSession?
+  commerceEvents      CommerceEvent[]
+  customerTokens      CustomerToken[]
+  oauthStates         OAuthState[]
+  customerAccountUrls CustomerAccountUrls?
+
+  @@index([shopId, status, updatedAt])
+  @@index([shopId, visitorId])
 }
 
 model Message {
-  id             String       @id @default(cuid())
-  conversationId String
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  role           String       // "user" or "assistant"
-  content        String
-  createdAt      DateTime     @default(now())
+  id                String   @id @default(cuid())
+  shopId            String
+  conversationId    String
+  role              String
+  content           String   @db.Text
+  structuredContent Json?
+  toolCalls         Json?
+  toolResults       Json?
+  model             String?
+  inputTokens       Int?
+  outputTokens      Int?
+  latencyMs         Int?
+  createdAt         DateTime @default(now())
 
+  shop         Shop         @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([shopId, conversationId, createdAt])
+}
+
+model CommerceSession {
+  id                  String       @id @default(cuid())
+  shopId              String
+  conversationId      String       @unique
+  visitorId           String?
+  customerId          String?
+  journeyStage        JourneyStage @default(DISCOVER)
+  structuredIntent    Json?
+  constraints         Json
+  recommendedProducts Json
+  comparedProducts    Json
+  selectedProductId   String?
+  selectedVariantId   String?
+  quantity            Int          @default(1)
+  cartId              String?
+  checkoutUrl         String?
+  buyerContext        Json
+  pendingMessages     Json
+  version             Int          @default(1)
+  expiresAt           DateTime
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  shop         Shop            @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  conversation Conversation    @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  events       CommerceEvent[]
+
+  @@index([shopId, journeyStage, updatedAt])
+  @@index([shopId, expiresAt])
+  @@index([shopId, cartId])
+}
+
+model CommerceEvent {
+  id                String   @id @default(cuid())
+  shopId            String
+  conversationId    String?
+  commerceSessionId String?
+  eventType         String
+  payload           Json
+  requestId         String
+  occurredAt        DateTime @default(now())
+
+  shop            Shop             @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  conversation    Conversation?    @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  commerceSession CommerceSession? @relation(fields: [commerceSessionId], references: [id], onDelete: SetNull)
+
+  @@index([shopId, eventType, occurredAt])
+  @@index([conversationId, occurredAt])
+  @@index([commerceSessionId, occurredAt])
+}
+
+model CustomerToken {
+  id                    String   @id @default(cuid())
+  shopId                String
+  conversationId        String?
+  customerReference     String
+  encryptedAccessToken  String   @db.Text
+  encryptedRefreshToken String?  @db.Text
+  expiresAt             DateTime
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  shop         Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, customerReference])
+  @@index([shopId, conversationId])
+  @@index([shopId, expiresAt])
+}
+
+model OAuthState {
+  id                    String    @id @default(cuid())
+  stateHash             String    @unique
+  shopId                String
+  conversationId        String?
+  encryptedCodeVerifier String?   @db.Text
+  redirectUri           String?
+  expiresAt             DateTime
+  consumedAt            DateTime?
+  createdAt             DateTime  @default(now())
+
+  shop         Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([shopId, expiresAt])
   @@index([conversationId])
 }
 
 model CustomerAccountUrls {
-  id               String    @id @default(cuid())
-  conversationId   String    @unique
+  id               String   @id @default(cuid())
+  shopId           String
+  conversationId   String   @unique
   mcpApiUrl        String?
   authorizationUrl String?
   tokenUrl         String?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  shop         Shop         @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([shopId])
+}
+
+model WebhookReceipt {
+  id          String   @id @default(cuid())
+  webhookId   String   @unique
+  shopId      String?
+  shopDomain  String
+  topic       String
+  processedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  shop Shop? @relation(fields: [shopId], references: [id], onDelete: SetNull)
+
+  @@index([shopDomain, topic, processedAt])
+  @@index([shopId])
 }

@@ -10,6 +10,13 @@ export function createPolicyAdapter(mcpClient) {
       query,
       ...context.policyFilters
     });
+    if (response?.error) {
+      const error = new Error("Shopify policy request failed");
+      error.code = response.error.type === "auth_required" ? "AUTH_REQUIRED" : "SHOPIFY_TOOL_FAILED";
+      error.authorizationUrl = response.error.authorizationUrl;
+      error.publicMessage = "Store information is temporarily unavailable.";
+      throw error;
+    }
 
     return {
       toolName: AppConfig.tools.policySearchName,

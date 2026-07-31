@@ -1,59 +1,34 @@
+import { buildCorsHeaders, assertAllowedOrigin } from "../lib/cors.server";
+import { requireWidgetRequestContext } from "../security/merchant-context.server";
 import { getMerchantConfig } from "../merchant/merchant.server";
-import { buildCorsHeaders } from "../lib/cors.server";
+import { toPublicMerchantConfig } from "../merchant/public-config.server";
 
-/**
- * Read-only storefront-safe merchant configuration endpoint.
- * Do not return the full merchant config from this route.
- */
 export async function loader({ request }) {
-  const merchantConfig = getMerchantConfig();
-
-  return new Response(JSON.stringify(toPublicMerchantConfig(merchantConfig)), {
-    headers: {
-      "Content-Type": "application/json",
-      ...corsHeaders(request)
-    }
-  });
+  const cors = corsHeaders(request);
+  try {
+    assertAllowedOrigin(request);
+    const context = requireWidgetRequestContext(request);
+    const merchantConfig = await getMerchantConfig(context);
+    return Response.json(toPublicMerchantConfig(merchantConfig), {
+      headers: { "Cache-Control": "no-store", ...cors }
+    });
+  } catch (error) {
+    return Response.json({ error: "Unauthorized" }, {
+      status: Number(error.status || 401),
+      headers: cors
+    });
+  }
 }
 
 export async function action({ request }) {
-  if (request.method.toLowerCase() === "options") {
-    return new Response(null, {
-      status: 204,
-      headers: corsHeaders(request)
-    });
-  }
-
-  return new Response(JSON.stringify({ error: "Method not allowed" }), {
-    status: 405,
-    headers: {
-      "Content-Type": "application/json",
-      ...corsHeaders(request)
-    }
-  });
-}
-
-function toPublicMerchantConfig(config) {
-  return {
-    assistant: {
-      name: config.assistant.name,
-      welcomeMessage: config.assistant.welcomeMessage,
-      quickActions: config.assistant.quickActions
-    },
-    widget: {
-      position: config.widget.position,
-      layout: config.widget.layout,
-      colors: config.widget.colors,
-      behavior: config.widget.behavior
-    }
-  };
+  const headers = corsHeaders(request);
+  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers });
+  return Response.json({ error: "Method not allowed" }, { status: 405, headers });
 }
 
 function corsHeaders(request) {
   return buildCorsHeaders(request, {
     methods: "GET, OPTIONS",
-    allowedHeaders: "Content-Type, Accept",
-    credentials: false
+    allowedHeaders: "Accept, Authorization, X-Request-Id"
   });
 }
-

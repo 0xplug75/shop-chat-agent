@@ -1,76 +1,138 @@
 {{ 'chat.css' | asset_url | stylesheet_tag }}
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
 <div
-  class="shop-ai-chat-container shop-ai-layout-{{ block.settings.widget_layout }} shop-ai-position-{{ block.settings.widget_position }}"
+  class="
+    shop-ai-chat-container
+    shop-ai-layout-{{ block.settings.widget_layout }}
+    shop-ai-position-{{ block.settings.widget_position }}
+    shop-ai-launcher-{{ block.settings.launcher_style }}
+  "
   data-shop-ai-layout="{{ block.settings.widget_layout }}"
   data-shop-ai-position="{{ block.settings.widget_position }}"
   style="
     --shop-ai-primary: {{ block.settings.chat_bubble_color }};
     --shop-ai-background: {{ block.settings.widget_background_color }};
     --shop-ai-text: {{ block.settings.widget_text_color }};
+    --shop-ai-radius: {{ block.settings.corner_radius }}px;
   "
 >
-  <div class="shop-ai-chat-bubble">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-    </svg>
-  </div>
+  <button
+    class="shop-ai-chat-bubble"
+    type="button"
+    aria-label="{{ block.settings.launcher_label | escape }}"
+    aria-expanded="false"
+    aria-controls="shop-ai-chat-window"
+  >
+    <span class="shop-ai-launcher-mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        <path d="M8 9h8M8 13h5"/>
+      </svg>
+    </span>
+    <span class="shop-ai-launcher-text">{{ block.settings.launcher_label }}</span>
+  </button>
 
-  <div class="shop-ai-choice-panel" aria-hidden="true">
-    <div class="shop-ai-choice-header">
-      <span class="shop-ai-choice-kicker">Shopping assistant</span>
-      <button class="shop-ai-choice-close" aria-label="Close">✕</button>
-    </div>
-    <h2>How do you want to shop?</h2>
-    <p>Browse the store yourself, or describe what you need and let the agent pull matching products into the chat.</p>
-    <div class="shop-ai-choice-actions">
-      <button class="shop-ai-start-chat" type="button">{{ block.settings.primary_cta_label }}</button>
-      <button class="shop-ai-continue-browsing" type="button">Continue browsing</button>
-    </div>
-  </div>
-
-  <div class="shop-ai-chat-window">
-    <div class="shop-ai-chat-header">
-      <div>
-        <span class="shop-ai-chat-eyebrow">Chat mode</span>
-        <strong>{{ 'chat.title' | t }}</strong>
+  <section
+    class="shop-ai-choice-panel"
+    aria-hidden="true"
+    aria-labelledby="shop-ai-choice-title"
+  >
+    <div class="shop-ai-surface-header">
+      <div class="shop-ai-identity">
+        <span class="shop-ai-avatar" aria-hidden="true">S</span>
+        <div>
+          <strong data-shop-ai-assistant-name>{{ 'chat.title' | t }}</strong>
+          <small>{{ 'chat.subtitle' | t }}</small>
+        </div>
       </div>
-      <button class="shop-ai-chat-close">✕</button>
-    </div>
-
-    <div class="shop-ai-chat-messages">
-      <!-- Messages will be added here by JavaScript -->
-    </div>
-
-    <div class="shop-ai-suggestions" aria-label="Suggested shopping prompts">
-      <button type="button" data-shop-ai-prompt="I need help finding the right product for me. Ask me what matters and recommend the best options.">Find the right product</button>
-      <button type="button" data-shop-ai-prompt="Compare the best products for my needs and explain which one I should choose.">Compare options</button>
-      <button type="button" data-shop-ai-prompt="Show me products that are available now and help me add the best one to cart.">Ready to buy</button>
-    </div>
-
-    <div class="shop-ai-chat-input">
-      <input type="text" placeholder="{{ 'chat.inputPlaceholder' | t }}">
-      <button class="shop-ai-chat-send">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="22" y1="2" x2="11" y2="13"></line>
-          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-        </svg>
+      <button class="shop-ai-choice-close shop-ai-icon-button" type="button" aria-label="{{ 'chat.closeButton' | t }}">
+        &times;
       </button>
     </div>
-  </div>
+
+    <div class="shop-ai-choice-content">
+      <span class="shop-ai-choice-kicker">{{ 'chat.choiceKicker' | t }}</span>
+      <h2 id="shop-ai-choice-title">{{ 'chat.choiceTitle' | t }}</h2>
+      <p>{{ block.settings.welcome_message }}</p>
+
+      <div class="shop-ai-choice-actions">
+        <button class="shop-ai-start-chat" type="button">
+          {{ block.settings.primary_cta_label }}
+        </button>
+        <button class="shop-ai-continue-browsing" type="button">
+          {{ 'chat.continueBrowsing' | t }}
+        </button>
+      </div>
+    </div>
+
+    <p class="shop-ai-trust-note">{{ 'chat.shopifyTrust' | t }}</p>
+  </section>
+
+  <section
+    id="shop-ai-chat-window"
+    class="shop-ai-chat-window"
+    aria-hidden="true"
+    aria-labelledby="shop-ai-chat-title"
+  >
+    <div class="shop-ai-chat-header">
+      <div class="shop-ai-identity">
+        <span class="shop-ai-avatar" aria-hidden="true">S</span>
+        <div>
+          <strong id="shop-ai-chat-title" data-shop-ai-assistant-name>{{ 'chat.title' | t }}</strong>
+          <small>{{ 'chat.subtitle' | t }}</small>
+        </div>
+      </div>
+      <button class="shop-ai-chat-close shop-ai-icon-button" type="button" aria-label="{{ 'chat.closeButton' | t }}">
+        &times;
+      </button>
+    </div>
+
+    <div class="shop-ai-chat-messages" aria-live="polite"></div>
+
+    <div class="shop-ai-suggestions" aria-label="{{ 'chat.suggestionsLabel' | t }}">
+      <button type="button" data-shop-ai-prompt="I need help finding the right product for me. Ask me what matters and recommend the best options.">
+        {{ 'chat.quickFind' | t }}
+      </button>
+      <button type="button" data-shop-ai-prompt="Compare the best products for my needs and explain which one I should choose.">
+        {{ 'chat.quickCompare' | t }}
+      </button>
+      <button type="button" data-shop-ai-prompt="Show me products that are available now and help me add the best one to cart.">
+        {{ 'chat.quickBuy' | t }}
+      </button>
+    </div>
+
+    <div class="shop-ai-composer">
+      <div class="shop-ai-chat-input">
+        <input
+          type="text"
+          aria-label="{{ 'chat.inputLabel' | t }}"
+          placeholder="{{ 'chat.inputPlaceholder' | t }}"
+          autocomplete="off"
+        >
+        <button class="shop-ai-chat-send" type="button" aria-label="{{ 'chat.sendButton' | t }}">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="m5 12 14-7-4 14-3-6-7-1Z"/>
+          </svg>
+        </button>
+      </div>
+      <small>{{ 'chat.composerTrust' | t }}</small>
+    </div>
+  </section>
 </div>
 
 <script src="{{ 'chat.js' | asset_url }}" defer></script>
 <script>
   window.shopChatConfig = {
-    promptType: {{ block.settings.system_prompt | json }},
+    promptType: "agenticBuyingAssistant",
     welcomeMessage: {{ block.settings.welcome_message | json }},
     backendUrl: {{ block.settings.backend_url | json }},
     widget: {
       layout: {{ block.settings.widget_layout | json }},
       position: {{ block.settings.widget_position | json }},
       primaryCtaLabel: {{ block.settings.primary_cta_label | json }},
+      launcherLabel: {{ block.settings.launcher_label | json }},
+      launcherStyle: {{ block.settings.launcher_style | json }},
+      cornerRadius: {{ block.settings.corner_radius | json }},
       colors: {
         primary: {{ block.settings.chat_bubble_color | json }},
         background: {{ block.settings.widget_background_color | json }},
@@ -83,35 +145,16 @@
       }
     }
   };
-  window.shopId = {{ shop.id }};
 </script>
 
 {% schema %}
 {
-  "name": "AI Chat Assistant",
+  "name": "IntentCart Assistant",
   "target": "body",
   "settings": [
     {
       "type": "header",
-      "content": "Widget experience"
-    },
-    {
-      "type": "color",
-      "id": "chat_bubble_color",
-      "label": "Accent color",
-      "default": "#5046e4"
-    },
-    {
-      "type": "color",
-      "id": "widget_background_color",
-      "label": "Widget background",
-      "default": "#ffffff"
-    },
-    {
-      "type": "color",
-      "id": "widget_text_color",
-      "label": "Widget text",
-      "default": "#111827"
+      "content": "Widget"
     },
     {
       "type": "select",
@@ -120,19 +163,19 @@
       "options": [
         {
           "value": "bubble",
-          "label": "Bubble"
+          "label": "Compact button"
         },
         {
           "value": "side-panel",
-          "label": "Side panel"
+          "label": "Floating assistant"
         },
         {
           "value": "inline",
-          "label": "Inline section"
+          "label": "Inline shopping block"
         },
         {
           "value": "fullscreen",
-          "label": "Fullscreen chat"
+          "label": "Full-screen shopping"
         }
       ],
       "default": "bubble"
@@ -163,17 +206,91 @@
     },
     {
       "type": "select",
+      "id": "launcher_style",
+      "label": "Launcher style",
+      "options": [
+        {
+          "value": "label",
+          "label": "Icon and text"
+        },
+        {
+          "value": "icon",
+          "label": "Icon only"
+        }
+      ],
+      "default": "label"
+    },
+    {
+      "type": "text",
+      "id": "launcher_label",
+      "label": "Launcher label",
+      "default": "Ask Sage"
+    },
+    {
+      "type": "range",
+      "id": "corner_radius",
+      "label": "Corner radius",
+      "min": 0,
+      "max": 24,
+      "step": 2,
+      "unit": "px",
+      "default": 12
+    },
+    {
+      "type": "header",
+      "content": "Appearance"
+    },
+    {
+      "type": "color",
+      "id": "chat_bubble_color",
+      "label": "Accent",
+      "default": "#5046e4"
+    },
+    {
+      "type": "color",
+      "id": "widget_background_color",
+      "label": "Background",
+      "default": "#ffffff"
+    },
+    {
+      "type": "color",
+      "id": "widget_text_color",
+      "label": "Text",
+      "default": "#111827"
+    },
+    {
+      "type": "header",
+      "content": "Welcome"
+    },
+    {
+      "type": "textarea",
+      "id": "welcome_message",
+      "label": "Welcome message",
+      "default": "Tell me what you are looking for and I will help you choose."
+    },
+    {
+      "type": "text",
+      "id": "primary_cta_label",
+      "label": "Primary button",
+      "default": "Shop with Sage"
+    },
+    {
+      "type": "header",
+      "content": "Behavior"
+    },
+    {
+      "type": "select",
       "id": "entry_behavior",
-      "label": "Entry behavior",
-      "info": "Auto uses the best default for each widget type. Choice opens the shopping choice card first. Direct opens chat immediately.",
+      "label": "When shoppers open it",
+      "info": "Auto uses the recommended behavior for each widget type.",
       "options": [
         {
           "value": "auto",
-          "label": "Auto"
+          "label": "Recommended"
         },
         {
           "value": "choice",
-          "label": "Show choice card"
+          "label": "Show introduction first"
         },
         {
           "value": "direct",
@@ -183,56 +300,16 @@
       "default": "auto"
     },
     {
-      "type": "text",
-      "id": "welcome_message",
-      "label": "Welcome Message",
-      "default": "Tell me what you are shopping for. I will search the catalog, compare the best matches, and help you add the right product to cart."
-    },
-    {
-      "type": "text",
-      "id": "primary_cta_label",
-      "label": "Primary button label",
-      "default": "Shop with chat"
-    },
-    {
-      "type": "header",
-      "content": "Behavior"
+      "type": "checkbox",
+      "id": "show_quick_actions",
+      "label": "Show suggested questions",
+      "default": true
     },
     {
       "type": "checkbox",
       "id": "open_on_load",
       "label": "Open automatically",
       "default": false
-    },
-    {
-      "type": "checkbox",
-      "id": "show_quick_actions",
-      "label": "Show quick actions",
-      "default": true
-    },
-    {
-      "type": "header",
-      "content": "Assistant"
-    },
-    {
-      "type": "select",
-      "id": "system_prompt",
-      "label": "Assistant mode",
-      "options": [
-        {
-          "value": "standardAssistant",
-          "label": "Standard Assistant"
-        },
-        {
-          "value": "agenticBuyingAssistant",
-          "label": "Agentic Buying Assistant"
-        },
-        {
-          "value": "enthusiasticAssistant",
-          "label": "Enthusiastic Assistant"
-        }
-      ],
-      "default": "agenticBuyingAssistant"
     },
     {
       "type": "header",
@@ -242,7 +319,7 @@
       "type": "text",
       "id": "backend_url",
       "label": "Backend URL",
-      "info": "Use the Shopify app dev tunnel URL, or an app proxy path such as /apps/intentcart. Keep / to use the storefront origin.",
+      "info": "Use the current Shopify CLI tunnel during local development. Leave / for a same-origin app proxy.",
       "default": "/"
     }
   ]

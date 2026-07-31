@@ -1,344 +1,227 @@
 import { generateAuthUrl } from "./auth.server";
-import { getCustomerToken } from "./db.server";
 import AppConfig from "./services/config.server";
-import { fetchWithTimeout } from "./lib/fetch-with-timeout.server";
+import { getCustomerToken } from "./services/customer-token.server";
+import { fetchWithTimeout, readJsonResponseWithLimit } from "./lib/fetch-with-timeout.server";
+import { createLogger } from "./lib/logger.server";
+import { assertTrustedShopifyUrl, normalizeShopDomain } from "./security/shopify-domain.server";
+
+export class McpRequestError extends Error {
+  constructor(code, message, { status = 502 } = {}) {
+    super(message);
+    this.name = "McpRequestError";
+    this.code = code;
+    this.status = status;
+    this.publicMessage = "Shopify could not complete the requested store action.";
+  }
+}
 
 /**
- * Client for interacting with Model Context Protocol (MCP) API endpoints.
- * Manages connections to both customer and storefront MCP endpoints, and handles tool invocation.
+ * Controlled transport for Shopify storefront and customer-account MCP.
+ * The model never receives these raw tools; adapters expose the allow-listed
+ * IntentCart registry instead.
  */
 class MCPClient {
-  /**
-   * Creates a new MCPClient instance.
-   *
-   * @param {string} hostUrl - The base URL for the shop
-   * @param {string} conversationId - ID for the current conversation
-   * @param {string} shopId - ID of the Shopify shop
-   */
-  constructor(hostUrl, conversationId, shopId, customerMcpEndpoint) {
-    this.tools = [];
+  constructor({ context, customerMcpEndpoint } = {}) {
+    if (!context?.shopId || !context?.shopDomain) {
+      throw new Error("Merchant context is required for MCP");
+    }
+
+    this.context = context;
+    this.logger = createLogger({
+      requestId: context.requestId,
+      shopId: context.shopId,
+      conversationId: context.conversationId
+    });
     this.customerTools = [];
     this.storefrontTools = [];
-    // TODO: Make this dynamic, for that first we need to allow access of mcp tools on password proteted demo stores.
-    this.storefrontMcpEndpoint = `${hostUrl}/api/mcp`;
-
-    const accountHostUrl = hostUrl.replace(/(\.myshopify\.com)$/, '.account$1');
-    this.customerMcpEndpoint = customerMcpEndpoint || `${accountHostUrl}/customer/api/mcp`;
     this.customerAccessToken = "";
-    this.conversationId = conversationId;
-    this.shopId = shopId;
+
+    const shopDomain = normalizeShopDomain(context.shopDomain);
+    this.storefrontMcpEndpoint = assertTrustedShopifyUrl(
+      `https://${shopDomain}/api/mcp`,
+      { shopDomain }
+    ).toString();
+
+    const accountHost = shopDomain.replace(/\.myshopify\.com$/, ".account.myshopify.com");
+    this.customerMcpEndpoint = assertTrustedShopifyUrl(
+      customerMcpEndpoint || `https://${accountHost}/customer/api/mcp`,
+      { shopDomain }
+    ).toString();
   }
 
-  /**
-   * Connects to the customer MCP server and retrieves available tools.
-   * Attempts to use an existing token or will proceed without authentication.
-   *
-   * @returns {Promise<Array>} Array of available customer tools
-   * @throws {Error} If connection to MCP server fails
-   */
-  async connectToCustomerServer() {
-    try {
-      console.log(`Connecting to MCP server at ${this.customerMcpEndpoint}`);
+  async initialize() {
+    const [storefront, customer] = await Promise.allSettled([
+      this.connectToStorefrontServer(),
+      this.connectToCustomerServer()
+    ]);
 
-      if (this.conversationId) {
-        const dbToken = await getCustomerToken(this.conversationId);
-
-        if (dbToken && dbToken.accessToken) {
-          this.customerAccessToken = dbToken.accessToken;
-        } else {
-          console.log("No token in database for conversation:", this.conversationId);
-        }
-      }
-
-      // If we still don't have a token, we'll connect without one
-      // and tools that require auth will prompt for it later
-      const headers = {
-        "Content-Type": "application/json",
-        "Authorization": this.customerAccessToken || ""
-      };
-
-      const response = await this._makeJsonRpcRequest(
-        this.customerMcpEndpoint,
-        "tools/list",
-        {},
-        headers
-      );
-
-      // Extract tools from the JSON-RPC response format
-      const toolsData = response.result && response.result.tools ? response.result.tools : [];
-      const customerTools = this._formatToolsData(toolsData);
-
-      this.customerTools = customerTools;
-      this.tools = [...this.tools, ...customerTools];
-
-      console.log(`[MCP] customer tools/list -> ${customerTools.length} tools: ${customerTools.map(t => t.name).join(', ')}`);
-
-      return customerTools;
-    } catch (e) {
-      console.error("Failed to connect to MCP server: ", e);
-      throw e;
+    if (storefront.status === "rejected") {
+      this.logger.warn("Storefront MCP discovery failed", { error: storefront.reason });
     }
+    if (customer.status === "rejected") {
+      this.logger.warn("Customer MCP discovery failed", { error: customer.reason });
+    }
+
+    return {
+      storefrontTools: this.storefrontTools,
+      customerTools: this.customerTools
+    };
   }
 
-  /**
-   * Connects to the storefront MCP server and retrieves available tools.
-   *
-   * @returns {Promise<Array>} Array of available storefront tools
-   * @throws {Error} If connection to MCP server fails
-   */
   async connectToStorefrontServer() {
-    try {
-      console.log(`Connecting to MCP server at ${this.storefrontMcpEndpoint}`);
-
-      const headers = {
-        "Content-Type": "application/json"
-      };
-
-      const response = await this._makeJsonRpcRequest(
-        this.storefrontMcpEndpoint,
-        "tools/list",
-        {},
-        headers
-      );
-
-      // Extract tools from the JSON-RPC response format
-      const toolsData = response.result && response.result.tools ? response.result.tools : [];
-      const storefrontTools = this._formatToolsData(toolsData);
-
-      this.storefrontTools = storefrontTools;
-      this.tools = [...this.tools, ...storefrontTools];
-
-      console.log(`[MCP] storefront tools/list -> ${storefrontTools.length} tools: ${storefrontTools.map(t => t.name).join(', ')}`);
-
-      return storefrontTools;
-    } catch (e) {
-      console.error("Failed to connect to MCP server: ", e);
-      throw e;
-    }
+    const response = await this.makeJsonRpcRequest(
+      this.storefrontMcpEndpoint,
+      "tools/list",
+      {},
+      { "Content-Type": "application/json" }
+    );
+    this.storefrontTools = this.formatTools(response.result?.tools || []);
+    this.logger.info("Storefront MCP connected", { toolCount: this.storefrontTools.length });
+    return this.storefrontTools;
   }
 
-  /**
-   * Dispatches a tool call to the appropriate MCP server based on the tool name.
-   *
-   * @param {string} toolName - Name of the tool to call
-   * @param {Object} toolArgs - Arguments to pass to the tool
-   * @returns {Promise<Object>} Result from the tool call
-   * @throws {Error} If tool is not found or call fails
-   */
+  async connectToCustomerServer() {
+    const token = this.context.conversationId
+      ? await getCustomerToken(this.context, { conversationId: this.context.conversationId })
+      : null;
+    this.customerAccessToken = token?.accessToken || "";
+
+    const response = await this.makeJsonRpcRequest(
+      this.customerMcpEndpoint,
+      "tools/list",
+      {},
+      this.customerHeaders()
+    );
+    this.customerTools = this.formatTools(response.result?.tools || []);
+    this.logger.info("Customer MCP connected", { toolCount: this.customerTools.length });
+    return this.customerTools;
+  }
+
   async callTool(toolName, toolArgs) {
-    let result;
-    if (this.customerTools.some(tool => tool.name === toolName)) {
-      result = await this.callCustomerTool(toolName, toolArgs);
-    } else if (this.storefrontTools.some(tool => tool.name === toolName)) {
-      result = await this.callStorefrontTool(toolName, toolArgs);
-    } else {
-      console.error(`[MCP] callTool: "${toolName}" not found in known tools. customerTools=[${this.customerTools.map(t => t.name)}] storefrontTools=[${this.storefrontTools.map(t => t.name)}]`);
-      throw new Error(`Tool ${toolName} not found`);
+    const isKnownCustomerTool = [
+      AppConfig.tools.getCartName,
+      AppConfig.tools.updateCartName
+    ].includes(toolName);
+    if (isKnownCustomerTool || this.customerTools.some((tool) => tool.name === toolName)) {
+      return this.callCustomerTool(toolName, toolArgs);
+    }
+    if (this.storefrontTools.some((tool) => tool.name === toolName)) {
+      return this.callStorefrontTool(toolName, toolArgs);
     }
 
-    // TEMP DEBUG: surface raw response size / product count for the catalog
-    // search tool so we can see whether Shopify is actually returning products.
-    if (toolName === AppConfig.tools.productSearchName) {
-      const text = result?.content?.[0]?.text;
-      let productCount = "n/a";
-      try {
-        const parsed = typeof text === "string" ? JSON.parse(text) : text;
-        productCount = Array.isArray(parsed?.products) ? parsed.products.length : "n/a";
-      } catch (_e) {
-        // leave as n/a
-      }
-      const size = JSON.stringify(result || {}).length;
-      console.log(`[MCP] ${toolName} response: ~${size} bytes, products=${productCount}, error=${Boolean(result?.error)}`);
-    }
-
-    return result;
+    throw new McpRequestError("TOOL_NOT_AVAILABLE", `Shopify tool ${toolName} is unavailable`, {
+      status: 409
+    });
   }
 
-  /**
-   * Calls a tool on the storefront MCP server.
-   *
-   * @param {string} toolName - Name of the storefront tool to call
-   * @param {Object} toolArgs - Arguments to pass to the tool
-   * @returns {Promise<Object>} Result from the tool call
-   * @throws {Error} If the tool call fails
-   */
   async callStorefrontTool(toolName, toolArgs) {
-    try {
-      console.log("Calling storefront tool", toolName, toolArgs);
-
-      const headers = {
-        "Content-Type": "application/json"
-      };
-
-      const response = await this._makeJsonRpcRequest(
-        this.storefrontMcpEndpoint,
-        "tools/call",
-        {
-          name: toolName,
-          arguments: toolArgs,
-        },
-        headers
-      );
-
-      return response.result || response;
-    } catch (error) {
-      console.error(`Error calling tool ${toolName}:`, error);
-      throw error;
-    }
+    const response = await this.makeJsonRpcRequest(
+      this.storefrontMcpEndpoint,
+      "tools/call",
+      { name: toolName, arguments: toolArgs },
+      { "Content-Type": "application/json" }
+    );
+    return response.result || response;
   }
 
-  /**
-   * Calls a tool on the customer MCP server.
-   * Handles authentication if needed.
-   *
-   * @param {string} toolName - Name of the customer tool to call
-   * @param {Object} toolArgs - Arguments to pass to the tool
-   * @returns {Promise<Object>} Result from the tool call or auth error
-   * @throws {Error} If the tool call fails
-   */
   async callCustomerTool(toolName, toolArgs) {
     try {
-      console.log("Calling customer tool", toolName, toolArgs);
-      // First try to get a token from the database for this conversation
-      let accessToken = this.customerAccessToken;
-
-      if (!accessToken || accessToken === "") {
-        const dbToken = await getCustomerToken(this.conversationId);
-
-        if (dbToken && dbToken.accessToken) {
-          accessToken = dbToken.accessToken;
-          this.customerAccessToken = accessToken; // Store it for later use
-        } else {
-          console.log("No token in database for conversation:", this.conversationId);
-        }
-      }
-
-      const headers = {
-        "Content-Type": "application/json",
-        "Authorization": accessToken
-      };
-
-      try {
-        const response = await this._makeJsonRpcRequest(
-          this.customerMcpEndpoint,
-          "tools/call",
-          {
-            name: toolName,
-            arguments: toolArgs,
-          },
-          headers
-        );
-
-        return response.result || response;
-      } catch (error) {
-        // Handle 401 specifically to trigger authentication
-        if (error.status === 401) {
-          console.log("Unauthorized, generating authorization URL for customer");
-
-          // Generate auth URL
-          const authResponse = await generateAuthUrl(this.conversationId, this.shopId);
-
-          // Instead of retrying, return the auth URL for the front-end
-          return {
-            error: {
-              type: "auth_required",
-              data: `You need to authorize the app to access your customer data. [Click here to authorize](${authResponse.url})`
-            }
-          };
-        }
-
-        // Re-throw other errors
-        throw error;
-      }
+      const response = await this.makeJsonRpcRequest(
+        this.customerMcpEndpoint,
+        "tools/call",
+        { name: toolName, arguments: toolArgs },
+        this.customerHeaders()
+      );
+      return response.result || response;
     } catch (error) {
-      console.error(`Error calling tool ${toolName}:`, error);
+      if (error.status !== 401) throw error;
+
+      const authorization = await generateAuthUrl(
+        this.context,
+        this.context.conversationId
+      );
       return {
         error: {
-          type: "internal_error",
-          data: `Error calling tool ${toolName}: ${error.message}`
+          type: "auth_required",
+          authorizationUrl: authorization.url
         }
       };
     }
   }
 
-  /**
-   * Makes a JSON-RPC request to the specified endpoint.
-   *
-   * @private
-   * @param {string} endpoint - The endpoint URL
-   * @param {string} method - The JSON-RPC method to call
-   * @param {Object} params - Parameters for the method
-   * @param {Object} headers - HTTP headers for the request
-   * @returns {Promise<Object>} Parsed JSON response
-   * @throws {Error} If the request fails
-   */
-  async _makeJsonRpcRequest(endpoint, method, params, headers) {
-    // Timeout + timing instrumentation for MCP JSON-RPC calls. Without a
-    // timeout here, an unreachable or slow-to-respond MCP endpoint hangs the
-    // whole chat request forever (infinite typing dots, no error surfaced).
+  async makeJsonRpcRequest(endpoint, method, params, headers) {
+    const trustedEndpoint = assertTrustedShopifyUrl(endpoint, {
+      shopDomain: this.context.shopDomain
+    }).toString();
     const timeoutMs = method === "tools/call"
       ? AppConfig.mcp.toolCallTimeoutMs
       : AppConfig.mcp.connectTimeoutMs;
-
     const startedAt = Date.now();
-    console.log(`[MCP] -> ${method} ${endpoint} (timeout ${timeoutMs}ms)`, params?.name ? { tool: params.name } : "");
 
     let response;
     try {
-      response = await fetchWithTimeout(endpoint, {
+      response = await fetchWithTimeout(trustedEndpoint, {
         method: "POST",
         headers,
         body: JSON.stringify({
           jsonrpc: "2.0",
-          method: method,
-          id: 1,
-          params: params
-        }),
+          method,
+          id: crypto.randomUUID(),
+          params
+        })
       }, timeoutMs);
     } catch (error) {
-      const durationMs = Date.now() - startedAt;
-      if (error.isTimeout) {
-        console.error(`[MCP] <- ${method} ${endpoint} TIMED OUT after ${durationMs}ms`);
-        const timeoutError = new Error(`MCP request to ${endpoint} (${method}) timed out after ${timeoutMs}ms`);
-        timeoutError.status = 504;
-        throw timeoutError;
-      }
-      console.error(`[MCP] <- ${method} ${endpoint} network error after ${durationMs}ms:`, error.message);
-      throw error;
+      this.logger.warn("MCP network request failed", {
+        operation: method,
+        durationMs: Date.now() - startedAt,
+        timeout: Boolean(error.isTimeout)
+      });
+      throw new McpRequestError(
+        error.isTimeout ? "MCP_TIMEOUT" : "MCP_NETWORK_ERROR",
+        "Shopify MCP request failed",
+        { status: error.isTimeout ? 504 : 502 }
+      );
     }
-
-    const durationMs = Date.now() - startedAt;
 
     if (!response.ok) {
-      const error = await response.text();
-      console.error(`[MCP] <- ${method} ${endpoint} failed ${response.status} after ${durationMs}ms: ${error}`);
-      const errorObj = new Error(`Request failed: ${response.status} ${error}`);
-      errorObj.status = response.status;
-      throw errorObj;
+      this.logger.warn("MCP request rejected", {
+        operation: method,
+        status: response.status,
+        upstreamRequestId: response.headers.get("x-request-id"),
+        durationMs: Date.now() - startedAt
+      });
+      throw new McpRequestError("MCP_REJECTED", "Shopify MCP request was rejected", {
+        status: response.status
+      });
     }
 
-    const json = await response.json();
-    const bodySize = JSON.stringify(json).length;
-    console.log(`[MCP] <- ${method} ${endpoint} ok in ${durationMs}ms (response ~${bodySize} bytes)`);
-
-    return json;
+    try {
+      const payload = await readJsonResponseWithLimit(response, 2_000_000);
+      if (payload?.error) {
+        throw new McpRequestError("MCP_RPC_ERROR", "Shopify MCP returned an error", { status: 502 });
+      }
+      return payload;
+    } catch (error) {
+      if (error instanceof McpRequestError) throw error;
+      throw new McpRequestError("MCP_INVALID_RESPONSE", "Shopify MCP returned an invalid response");
+    }
   }
 
-  /**
-   * Formats raw tool data into a consistent format.
-   *
-   * @private
-   * @param {Array} toolsData - Raw tools data from the API
-   * @returns {Array} Formatted tools data
-   */
-  _formatToolsData(toolsData) {
-    return toolsData.map((tool) => {
-      return {
-        name: tool.name,
-        description: tool.description,
-        input_schema: tool.inputSchema || tool.input_schema,
-      };
-    });
+  customerHeaders() {
+    return {
+      "Content-Type": "application/json",
+      ...(this.customerAccessToken
+        ? { Authorization: `Bearer ${this.customerAccessToken.replace(/^Bearer\s+/i, "")}` }
+        : {})
+    };
+  }
+
+  formatTools(tools) {
+    return tools.map((tool) => ({
+      name: tool.name,
+      description: tool.description,
+      input_schema: tool.inputSchema || tool.input_schema
+    }));
   }
 }
 

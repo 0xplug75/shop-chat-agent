@@ -76,8 +76,11 @@ Purpose:
 - Later becomes editable Merchant OS.
 
 Current maturity:
-- Read-only dashboard.
-- Status summary and widget experience foundation.
+- Read-only operational app with five focused routes.
+- Home contains the launch checklist, current configuration summary, Theme Editor deep link, and storefront preview link.
+- Assistant, Widget, Knowledge, and Commerce each have a dedicated page.
+- Widget contains the interactive preview for the four supported layouts.
+- No settings persistence from the embedded app yet.
 
 Design direction:
 - Light surface.
@@ -96,6 +99,8 @@ Purpose:
 Belongs here:
 - Widget type.
 - Position.
+- Launcher style and label.
+- Corner radius.
 - Accent/background/text colors.
 - Welcome message.
 - Primary button label.
@@ -203,9 +208,19 @@ Buttons:
 
 ## Embedded App Information Architecture
 
-Current sections:
+Primary navigation uses Shopify App Bridge `s-app-nav`. The app name returns to
+`/app`; the visible entries are Assistant, Widget, Knowledge, and Commerce.
 
-### Home
+Rules:
+- Keep primary navigation in the Shopify admin sidebar.
+- Do not duplicate the app navigation as horizontal tabs in the page body.
+- Keep navigation flat, concise, and noun-led.
+- Give each page one primary purpose.
+- Use contextual links for next actions such as opening the Theme Editor or Shopify products.
+
+Current routes:
+
+### Home (`/app`)
 
 Goal:
 - Show whether the assistant is ready.
@@ -218,7 +233,7 @@ Required blocks:
 - Checkout ready.
 - Current setup summary.
 
-### Assistant
+### Assistant (`/app/assistant`)
 
 Goal:
 - Explain how Sage speaks and what guardrails exist.
@@ -231,7 +246,7 @@ Fields:
 - Quick actions.
 - Guardrails.
 
-### Widget
+### Widget (`/app/widget`)
 
 Goal:
 - Show how the assistant appears on the storefront.
@@ -245,7 +260,7 @@ Fields:
 - Visual preview.
 - Supported modes.
 
-### Knowledge
+### Knowledge (`/app/knowledge`)
 
 Goal:
 - Show what Sage can answer from.
@@ -259,7 +274,7 @@ Future:
 - Help center.
 - Custom knowledge.
 
-### Commerce
+### Commerce (`/app/commerce`)
 
 Goal:
 - Show how buying actions are controlled.
@@ -285,7 +300,8 @@ Use when:
 Behavior:
 - Bubble opens choice panel.
 - Shopper selects chat mode.
-- Chat opens in large modal.
+- Chat opens in a compact panel capped at 420px on desktop.
+- The storefront remains browsable while the panel is open.
 - Merchant can override entry behavior to direct chat when needed.
 
 ### Side Panel
@@ -311,6 +327,7 @@ Behavior:
 - Bubble is hidden.
 - Choice panel is visible by default unless open-on-load is enabled.
 - Direct chat can be selected when the merchant wants the inline block to start as a conversation.
+- Automatic opening does not steal focus or move the shopper down the page.
 
 ### Fullscreen
 
@@ -349,7 +366,7 @@ Preferred labels:
 - `Catalog connected`
 - `Checkout ready`
 - `Widget type`
-- `Assistant mode`
+- `Entry behavior`
 - `Quick actions`
 - `Open automatically`
 
@@ -377,6 +394,14 @@ Current widget modes:
 - `side-panel`
 - `inline`
 - `fullscreen`
+
+Current storefront behavior:
+- Desktop bubble and choice surfaces stay compact and preserve page browsing.
+- Side panel and fullscreen modes open chat directly after the shopper uses the launcher.
+- Mobile chat uses the full viewport height.
+- Product recommendations are horizontal on compact desktop panels and stacked on mobile.
+- Runtime tool names and arguments are replaced with shopper-friendly progress messages.
+- Launcher, close, composer, and quick-action controls expose accessible labels and keyboard behavior.
 
 Current config rule:
 - Theme Editor settings override merchant JSON for visual storefront behavior.

@@ -1,113 +1,62 @@
-/**
- * Authentication service for handling OAuth and PKCE flows
- */
-import { storeCodeVerifier, getCustomerAccountUrls } from "./db.server";
+import { createHash, randomBytes } from "node:crypto";
+import { createOAuthState } from "./services/oauth-state.server";
+import { getCustomerAccountUrls } from "./services/customer-account-urls.server";
+import { assertTrustedShopifyUrl } from "./security/shopify-domain.server";
 
-/**
- * Generate authorization URL for the customer
- * @param {string} conversationId - The conversation ID to track the auth flow
- * @returns {Promise<Object>} - Object containing the auth URL and conversation ID
- */
-export async function generateAuthUrl(conversationId, shopId) {
-  // Generate authorization URL for the customer
+export async function generateAuthUrl(context, conversationId) {
+  if (!context?.shopId || !conversationId) {
+    throw new Error("Merchant context and conversation are required");
+  }
+
   const clientId = process.env.SHOPIFY_API_KEY;
-  const scope = "customer-account-mcp-api:full";
-  const responseType = "code";
+  const redirectUri = getRedirectUri();
+  if (!clientId) throw new Error("SHOPIFY_API_KEY is required");
 
-  // Use the actual app URL for redirect
-  const redirectUri = process.env.REDIRECT_URL;
+  const accountUrls = await getCustomerAccountUrls(context, conversationId);
+  if (!accountUrls?.authorizationUrl) {
+    throw new Error("Customer account authorization is unavailable");
+  }
 
-  // Include the conversation ID and shop ID in the state parameter for tracking
-  const state = `${conversationId}-${shopId}`;
-
-  // Generate code verifier and challenge
+  const authorizationUrl = assertTrustedShopifyUrl(accountUrls.authorizationUrl, {
+    shopDomain: context.shopDomain
+  });
   const verifier = generateCodeVerifier();
   const challenge = await generateCodeChallenge(verifier);
+  const { state } = await createOAuthState(context, {
+    conversationId,
+    codeVerifier: verifier,
+    redirectUri
+  });
 
-  // Store the code verifier in the database
-  try {
-    await storeCodeVerifier(state, verifier);
-  } catch (error) {
-    console.error('[auth] Failed to store code verifier:', error);
-  }
-
-  // Set code_challenge and code_challenge_method parameters
-  const codeChallengeMethod = "S256";
-  const baseAuthUrl = await getBaseAuthUrl(conversationId);
-
-  if (!baseAuthUrl) {
-    throw new Error('Base auth URL not found');
-  }
-
-
-  // Construct the authorization URL with hardcoded shop ID
-  const authUrl = `${baseAuthUrl}?client_id=${clientId}&scope=${encodeURIComponent(scope)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=${responseType}&state=${state}&code_challenge=${challenge}&code_challenge_method=${codeChallengeMethod}`;
+  authorizationUrl.searchParams.set("client_id", clientId);
+  authorizationUrl.searchParams.set("scope", "customer-account-mcp-api:full");
+  authorizationUrl.searchParams.set("redirect_uri", redirectUri);
+  authorizationUrl.searchParams.set("response_type", "code");
+  authorizationUrl.searchParams.set("state", state);
+  authorizationUrl.searchParams.set("code_challenge", challenge);
+  authorizationUrl.searchParams.set("code_challenge_method", "S256");
 
   return {
-    url: authUrl,
+    url: authorizationUrl.toString(),
     conversation_id: conversationId
   };
 }
 
-/**
- * Get the base auth URL from the customer MCP API URL
- * @param {string} conversationId - The conversation ID to track the auth flow
- * @returns {Promise<string|null>} - The base auth URL or null if not found
- */
-async function getBaseAuthUrl(conversationId) {
-  const { authorizationUrl } = await getCustomerAccountUrls(conversationId);
-
-  return authorizationUrl;
-}
-
-/**
- * Generate a code verifier for PKCE
- * @returns {string} - The generated code verifier
- */
 export function generateCodeVerifier() {
-  const array = new Uint8Array(32);
-  crypto.getRandomValues(array);
-  const randomString = convertBufferToString(array);
-  return base64UrlEncode(randomString);
+  return randomBytes(32).toString("base64url");
 }
 
-/**
- * Generate a code challenge from a verifier
- * @param {string} verifier - The code verifier
- * @returns {Promise<string>} - The generated code challenge
- */
 export async function generateCodeChallenge(verifier) {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(verifier);
-  const digestOp = await crypto.subtle.digest('SHA-256', data);
-  const hash = convertBufferToString(digestOp);
-  return base64UrlEncode(hash);
+  return createHash("sha256").update(verifier).digest("base64url");
 }
 
-/**
- * Convert a buffer to a string
- * @param {ArrayBuffer} buffer - The buffer to convert
- * @returns {string} - The converted string
- */
-function convertBufferToString(buffer) {
-  const uintArray = new Uint8Array(buffer);
-  const numberArray = Array.from(uintArray);
-  return String.fromCharCode.apply(null, numberArray);
-}
-
-/**
- * Encode a string in base64url format
- * @param {string} str - The string to encode
- * @returns {string} - The encoded string
- */
-function base64UrlEncode(str) {
-  // Convert string to base64
-  let base64 = btoa(str);
-
-  // Make base64 URL-safe by replacing characters
-  base64 = base64.replace(/\+/g, "-")
-                 .replace(/\//g, "_")
-                 .replace(/=+$/, ""); // Remove any trailing '=' padding
-
-  return base64;
+function getRedirectUri() {
+  const configured = process.env.REDIRECT_URL;
+  const appUrl = process.env.APP_URL || process.env.SHOPIFY_APP_URL;
+  const value = configured || (appUrl ? `${appUrl.replace(/\/$/, "")}/auth/callback` : "");
+  const url = new URL(value);
+  if (url.protocol !== "https:" && process.env.NODE_ENV === "production") {
+    throw new Error("Customer OAuth redirect must use HTTPS");
+  }
+  return url.toString();
 }

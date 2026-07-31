@@ -5,15 +5,8 @@ import { createBusinessMessageInterpreter } from "./business-message-interpreter
  * Cart Adapter
  * Wraps Shopify cart tools and preserves full-cart PUT semantics.
  *
- * STATUS: not yet wired into the live request path. chat.jsx's onToolUse
- * handler currently lets Claude call get_cart/update_cart directly through
- * mcpClient.callTool() and post-processes the result inline in
- * applyCommerceToolResult(), bypassing this adapter (and, transitively,
- * business-message-interpreter.server.js, whose only caller is this file).
- * Kept intentionally as the reserved cart leg of the adapter-based commerce
- * architecture (parity with catalog-adapter/policy-adapter/checkout-adapter)
- * — see docs/architecture-notes/cart-adapter-wiring-gap.md for the wiring
- * plan and why it hasn't been done yet.
+ * This is the only live path to Shopify cart mutations. The tool registry
+ * validates confirmation, variant and quantity before calling this adapter.
  */
 export function createCartAdapter(mcpClient) {
   const businessMessageInterpreter = createBusinessMessageInterpreter();
@@ -31,10 +24,13 @@ export function createCartAdapter(mcpClient) {
 
   const getCart = async ({ cartId }) => {
     const response = await mcpClient.callTool(AppConfig.tools.getCartName, { cart_id: cartId });
+    assertToolResponse(response);
 
     return {
       toolName: AppConfig.tools.getCartName,
       response,
+      cart: normalizeCartResponse(response),
+      cartId: extractCartId(response),
       businessMessage: businessMessageInterpreter.interpret(response)
     };
   };
@@ -44,10 +40,13 @@ export function createCartAdapter(mcpClient) {
       cart_id: cartId,
       ...fullCartState
     });
+    assertToolResponse(response);
 
     return {
       toolName: AppConfig.tools.updateCartName,
       response,
+      cart: normalizeCartResponse(response),
+      cartId: extractCartId(response),
       businessMessage: businessMessageInterpreter.interpret(response)
     };
   };
@@ -66,12 +65,91 @@ export function createCartAdapter(mcpClient) {
     });
   };
 
+  const addConfirmedItem = async ({ cartId, productId, variantId, quantity }) => {
+    const response = await mcpClient.callTool(AppConfig.tools.updateCartName, {
+      ...(cartId ? { cart_id: cartId } : {}),
+      add_items: [{
+        product_id: productId,
+        product_variant_id: variantId,
+        quantity
+      }]
+    });
+    assertToolResponse(response);
+
+    return {
+      toolName: AppConfig.tools.updateCartName,
+      response,
+      cart: normalizeCartResponse(response),
+      cartId: extractCartId(response),
+      businessMessage: businessMessageInterpreter.interpret(response)
+    };
+  };
+
   return {
     createCart,
     getCart,
     updateCart,
-    preserveAndUpdateCart
+    preserveAndUpdateCart,
+    addConfirmedItem
   };
+}
+
+function assertToolResponse(response) {
+  if (!response?.error) return;
+  const error = new Error("Shopify cart request failed");
+  error.code = response.error.type === "auth_required" ? "AUTH_REQUIRED" : "SHOPIFY_TOOL_FAILED";
+  error.authorizationUrl = response.error.authorizationUrl;
+  error.publicMessage = response.error.type === "auth_required"
+    ? "Customer authorization is required before accessing this cart."
+    : "Shopify could not update the cart.";
+  throw error;
+}
+
+export function extractCartId(response) {
+  const payload = unwrapToolPayload(response);
+  return String(
+    payload?.cartId ||
+    payload?.cart_id ||
+    payload?.cart?.id ||
+    payload?.cart?.cartId ||
+    payload?.cart?.cart_id ||
+    payload?.id ||
+    ""
+  ) || null;
+}
+
+export function normalizeCartResponse(response) {
+  return redactSensitiveCartFields(unwrapToolPayload(response));
+}
+
+function unwrapToolPayload(response) {
+  if (!response) return {};
+  const content = Array.isArray(response.content)
+    ? response.content.find((item) => item?.text !== undefined)?.text
+    : undefined;
+  const candidate = content ?? response;
+  if (typeof candidate !== "string") return candidate;
+  try {
+    return JSON.parse(candidate);
+  } catch (_error) {
+    return { outcome: candidate.slice(0, 2000) };
+  }
+}
+
+function redactSensitiveCartFields(value, depth = 0) {
+  if (depth > 6 || value === null || value === undefined) return value;
+  if (Array.isArray(value)) {
+    return value.slice(0, 100).map((item) => redactSensitiveCartFields(item, depth + 1));
+  }
+  if (typeof value === "string") return value.slice(0, 5000);
+  if (typeof value !== "object") return value;
+
+  const blocked = /(authorization|cookie|token|secret|password|email|phone|address|buyerIdentity|buyer_identity)/i;
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key]) => !blocked.test(key))
+      .map(([key, item]) => [key, redactSensitiveCartFields(item, depth + 1)])
+  );
 }
 
 function extractCartState(response) {

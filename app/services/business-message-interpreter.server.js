@@ -2,15 +2,8 @@
  * Business Message Interpreter
  * Converts Shopify MCP business outcomes into assistant-safe summaries.
  *
- * STATUS: not yet wired into the live request path. Its only caller today is
- * cart-adapter.server.js (also currently unwired — see that file's header).
- * chat.jsx's applyCommerceToolResult() currently builds a thinner, hardcoded
- * business message inline for cart tool results instead of classifying
- * outcomes through this interpreter. Kept intentionally — richer outcome
- * classification (quantity_adjusted / not_found / unavailable /
- * requires_selling_plan / requires_buyer_input) is the target behavior once
- * cart-adapter is wired in. See
- * docs/architecture-notes/cart-adapter-wiring-gap.md.
+ * The raw Shopify response is inspected transiently and is never included in
+ * the returned value, model context, event payloads, or persisted messages.
  */
 
 const OUTCOME_PATTERNS = [
@@ -56,15 +49,14 @@ export function createBusinessMessageInterpreter() {
 
     return {
       outcome,
-      rawMessage,
-      assistantMessage: toAssistantMessage(outcome, rawMessage)
+      assistantMessage: toAssistantMessage(outcome)
     };
   };
 
   return { interpret };
 }
 
-function toAssistantMessage(outcome, rawMessage) {
+function toAssistantMessage(outcome) {
   switch (outcome) {
     case 'quantity_adjusted':
       return 'Shopify adjusted the quantity based on current cart or inventory rules.';
@@ -77,7 +69,7 @@ function toAssistantMessage(outcome, rawMessage) {
     case 'requires_buyer_input':
       return 'Shopify needs an exact buyer choice before the commerce action can continue.';
     default:
-      return rawMessage || 'Shopify completed the requested commerce action.';
+      return 'Shopify completed the requested commerce action.';
   }
 }
 

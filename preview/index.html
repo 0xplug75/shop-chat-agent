@@ -3,178 +3,319 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shop Chat Agent Preview</title>
+    <title>IntentCart Widget Preview</title>
     <link rel="stylesheet" href="../extensions/chat-bubble/assets/chat.css">
     <style>
+      * {
+        box-sizing: border-box;
+      }
+
       body {
-        background: #f6f2ec;
-        color: #18181b;
+        background: #ffffff;
+        color: #18191b;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         margin: 0;
         min-height: 100vh;
       }
 
+      .preview-nav {
+        align-items: center;
+        background: #101114;
+        color: #ffffff;
+        display: flex;
+        gap: 20px;
+        justify-content: space-between;
+        min-height: 58px;
+        padding: 0 28px;
+      }
+
+      .preview-nav strong {
+        font-size: 14px;
+      }
+
+      .preview-modes {
+        display: flex;
+        gap: 4px;
+        overflow-x: auto;
+      }
+
+      .preview-modes a {
+        border-radius: 5px;
+        color: #c9ccd1;
+        font-size: 12px;
+        padding: 7px 9px;
+        text-decoration: none;
+        white-space: nowrap;
+      }
+
+      .preview-modes a[data-active="true"] {
+        background: #ffffff;
+        color: #17181a;
+      }
+
       .preview-storefront {
-        display: grid;
-        gap: 28px;
         margin: 0 auto;
-        max-width: 1120px;
-        padding: 42px 24px 120px;
+        max-width: 1180px;
+        padding: 28px 28px 140px;
       }
 
       .preview-hero {
         align-items: end;
-        background: #15151a;
-        border-radius: 0;
-        color: white;
+        background: #dbe3e8;
+        color: #15171a;
         display: grid;
-        min-height: 360px;
+        min-height: 390px;
         overflow: hidden;
-        padding: 36px;
+        padding: 38px;
+      }
+
+      .preview-hero span {
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
       }
 
       .preview-hero h1 {
-        font-size: clamp(38px, 7vw, 84px);
+        font-size: clamp(36px, 6vw, 70px);
         letter-spacing: 0;
-        line-height: 0.95;
-        margin: 0;
-        max-width: 820px;
+        line-height: 1;
+        margin: 8px 0 0;
+        max-width: 760px;
       }
 
       .preview-hero p {
-        color: #d4d4d8;
-        font-size: 18px;
+        color: #4f5860;
+        font-size: 16px;
         line-height: 1.45;
-        margin: 18px 0 0;
-        max-width: 560px;
+        margin: 16px 0 0;
+        max-width: 570px;
+      }
+
+      .preview-section-title {
+        font-size: 28px;
+        margin: 34px 0 18px;
       }
 
       .preview-grid {
         display: grid;
-        gap: 16px;
+        gap: 14px;
         grid-template-columns: repeat(3, minmax(0, 1fr));
       }
 
       .preview-product {
-        background: white;
-        border: 1px solid #e2ded8;
-        border-radius: 8px;
-        min-height: 220px;
-        padding: 18px;
+        border: 1px solid #e1e3e5;
+        border-radius: 6px;
+        min-width: 0;
+        overflow: hidden;
       }
 
       .preview-product-image {
         aspect-ratio: 4 / 3;
-        background: linear-gradient(135deg, #d7c7b5, #f8f8f8);
-        border-radius: 6px;
-        margin-bottom: 14px;
+        background: #eef0f1;
+        border-bottom: 1px solid #e1e3e5;
+      }
+
+      .preview-product div:last-child {
+        padding: 15px;
       }
 
       .preview-product h2 {
-        font-size: 18px;
-        margin: 0 0 8px;
+        font-size: 16px;
+        margin: 0 0 6px;
       }
 
       .preview-product p {
-        color: #5f5b55;
+        color: #646b73;
+        font-size: 13px;
         line-height: 1.45;
         margin: 0;
       }
 
       @media (max-width: 720px) {
+        .preview-nav {
+          align-items: flex-start;
+          display: grid;
+          padding: 14px 16px;
+        }
+
+        .preview-storefront {
+          padding: 16px 16px 110px;
+        }
+
         .preview-grid {
           grid-template-columns: 1fr;
         }
 
         .preview-hero {
-          min-height: 300px;
+          min-height: 330px;
           padding: 24px;
         }
       }
     </style>
   </head>
   <body>
+    <header class="preview-nav">
+      <strong>IntentCart local preview</strong>
+      <nav class="preview-modes" aria-label="Widget layouts">
+        <a href="?layout=bubble" data-layout="bubble">Compact button</a>
+        <a href="?layout=side-panel" data-layout="side-panel">Floating assistant</a>
+        <a href="?layout=inline" data-layout="inline">Inline shopping block</a>
+        <a href="?layout=fullscreen" data-layout="fullscreen">Full-screen shopping</a>
+      </nav>
+    </header>
+
     <main class="preview-storefront">
-      <section class="preview-hero">
+      <section class="preview-hero shopify-section">
         <div>
-          <h1>Demo Shopify storefront</h1>
-          <p>Click the chat bubble in the bottom-right corner, choose chat mode, then send a shopping intent. The agent response and product cards are mocked for local preview.</p>
+          <span>New collection</span>
+          <h1>Find the right setup for the way you ride.</h1>
+          <p>
+            Browse normally or ask Sage to narrow the catalog, compare the best
+            options, confirm a variant, and prepare the Shopify cart.
+          </p>
         </div>
       </section>
 
-      <section class="preview-grid" aria-label="Storefront products">
-        <article class="preview-product">
-          <div class="preview-product-image"></div>
-          <h2>Daily Hydration Set</h2>
-          <p>A sample product card representing the normal browsing path.</p>
-        </article>
-        <article class="preview-product">
-          <div class="preview-product-image"></div>
-          <h2>Travel Essentials</h2>
-          <p>The shopper can still browse the site without entering chat mode.</p>
-        </article>
-        <article class="preview-product">
-          <div class="preview-product-image"></div>
-          <h2>Performance Bundle</h2>
-          <p>The bubble adds the agentic buying path on top of the storefront.</p>
-        </article>
+      <section aria-labelledby="preview-products-title">
+        <h2 class="preview-section-title" id="preview-products-title">Featured products</h2>
+        <div class="preview-grid">
+          <article class="preview-product">
+            <div class="preview-product-image"></div>
+            <div>
+              <h2>Daily Hydration Set</h2>
+              <p>A balanced kit for a simple daily routine.</p>
+            </div>
+          </article>
+          <article class="preview-product">
+            <div class="preview-product-image"></div>
+            <div>
+              <h2>Performance Bundle</h2>
+              <p>A complete option for shoppers comparing value.</p>
+            </div>
+          </article>
+          <article class="preview-product">
+            <div class="preview-product-image"></div>
+            <div>
+              <h2>Travel Essentials</h2>
+              <p>A smaller format for gifting or trying the range.</p>
+            </div>
+          </article>
+        </div>
       </section>
     </main>
 
-    <div class="shop-ai-chat-container">
-      <div class="shop-ai-chat-bubble" style="background-color: #5046e4">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-        </svg>
-      </div>
+    <div class="shop-ai-chat-container shop-ai-launcher-label">
+      <button
+        class="shop-ai-chat-bubble"
+        type="button"
+        aria-label="Ask Sage"
+        aria-expanded="false"
+        aria-controls="shop-ai-chat-window"
+      >
+        <span class="shop-ai-launcher-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            <path d="M8 9h8M8 13h5"></path>
+          </svg>
+        </span>
+        <span class="shop-ai-launcher-text">Ask Sage</span>
+      </button>
 
-      <div class="shop-ai-choice-panel" aria-hidden="true">
-        <div class="shop-ai-choice-header">
-          <span class="shop-ai-choice-kicker">Shopping assistant</span>
-          <button class="shop-ai-choice-close" aria-label="Close">x</button>
-        </div>
-        <h2>How do you want to shop?</h2>
-        <p>Browse the store yourself, or describe what you need and let the agent pull matching products into the chat.</p>
-        <div class="shop-ai-choice-actions">
-          <button class="shop-ai-start-chat" type="button">Shop with chat</button>
-          <button class="shop-ai-continue-browsing" type="button">Continue browsing</button>
-        </div>
-      </div>
-
-      <div class="shop-ai-chat-window">
-        <div class="shop-ai-chat-header">
-          <div>
-            <span class="shop-ai-chat-eyebrow">Chat mode</span>
-            <strong>Shop with Agent</strong>
+      <section class="shop-ai-choice-panel" aria-hidden="true" aria-labelledby="shop-ai-choice-title">
+        <div class="shop-ai-surface-header">
+          <div class="shop-ai-identity">
+            <span class="shop-ai-avatar" aria-hidden="true">S</span>
+            <div>
+              <strong data-shop-ai-assistant-name>Sage</strong>
+              <small>Shopping assistant</small>
+            </div>
           </div>
-          <button class="shop-ai-chat-close">x</button>
+          <button class="shop-ai-choice-close shop-ai-icon-button" type="button" aria-label="Close">&times;</button>
         </div>
 
-        <div class="shop-ai-chat-messages"></div>
+        <div class="shop-ai-choice-content">
+          <span class="shop-ai-choice-kicker">Guided shopping</span>
+          <h2 id="shop-ai-choice-title">What can I help you find?</h2>
+          <p>Tell me what matters and I will narrow the catalog to a few useful options.</p>
+          <div class="shop-ai-choice-actions">
+            <button class="shop-ai-start-chat" type="button">Shop with Sage</button>
+            <button class="shop-ai-continue-browsing" type="button">Keep browsing</button>
+          </div>
+        </div>
 
-        <div class="shop-ai-suggestions" aria-label="Suggested shopping prompts">
+        <p class="shop-ai-trust-note">Products, availability, cart, and checkout stay in Shopify.</p>
+      </section>
+
+      <section
+        id="shop-ai-chat-window"
+        class="shop-ai-chat-window"
+        aria-hidden="true"
+        aria-labelledby="shop-ai-chat-title"
+      >
+        <div class="shop-ai-chat-header">
+          <div class="shop-ai-identity">
+            <span class="shop-ai-avatar" aria-hidden="true">S</span>
+            <div>
+              <strong id="shop-ai-chat-title" data-shop-ai-assistant-name>Sage</strong>
+              <small>Shopping assistant</small>
+            </div>
+          </div>
+          <button class="shop-ai-chat-close shop-ai-icon-button" type="button" aria-label="Close">&times;</button>
+        </div>
+
+        <div class="shop-ai-chat-messages" aria-live="polite"></div>
+
+        <div class="shop-ai-suggestions" aria-label="Suggested shopping questions">
           <button type="button" data-shop-ai-prompt="I need help finding the right product for me. Ask me what matters and recommend the best options.">Find the right product</button>
           <button type="button" data-shop-ai-prompt="Compare the best products for my needs and explain which one I should choose.">Compare options</button>
           <button type="button" data-shop-ai-prompt="Show me products that are available now and help me add the best one to cart.">Ready to buy</button>
         </div>
 
-        <div class="shop-ai-chat-input">
-          <input type="text" placeholder="Tell me what you are shopping for">
-          <button class="shop-ai-chat-send">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="22" y1="2" x2="11" y2="13"></line>
-              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-            </svg>
-          </button>
+        <div class="shop-ai-composer">
+          <div class="shop-ai-chat-input">
+            <input type="text" aria-label="Message Sage" placeholder="Ask about products, sizing, or fit" autocomplete="off">
+            <button class="shop-ai-chat-send" type="button" aria-label="Send">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="m5 12 14-7-4 14-3-6-7-1Z"></path>
+              </svg>
+            </button>
+          </div>
+          <small>Recommendations use current Shopify store data.</small>
         </div>
-      </div>
+      </section>
     </div>
 
     <script>
+      const requestedLayout = new URLSearchParams(window.location.search).get("layout");
+      const supportedLayouts = ["bubble", "side-panel", "inline", "fullscreen"];
+      const previewLayout = supportedLayouts.includes(requestedLayout) ? requestedLayout : "bubble";
+
+      document.querySelectorAll("[data-layout]").forEach((link) => {
+        link.dataset.active = String(link.dataset.layout === previewLayout);
+      });
+
       window.shopChatConfig = {
         promptType: "agenticBuyingAssistant",
-        welcomeMessage: "Tell me what you are shopping for. I will search the catalog, compare the best matches, and help you add the right product to cart.",
-        backendUrl: ""
+        welcomeMessage: "Tell me what you are looking for and I will help you choose.",
+        backendUrl: "",
+        widget: {
+          layout: previewLayout,
+          position: "bottom-right",
+          primaryCtaLabel: "Shop with Sage",
+          launcherLabel: "Ask Sage",
+          launcherStyle: "label",
+          cornerRadius: 12,
+          colors: {
+            primary: "#5046e4",
+            background: "#ffffff",
+            text: "#111827"
+          },
+          behavior: {
+            openOnLoad: previewLayout === "inline",
+            showQuickActions: true,
+            entryBehavior: previewLayout === "inline" ? "direct" : "auto"
+          }
+        }
       };
       window.shopId = "preview-shop";
 
@@ -222,16 +363,29 @@
       }
 
       window.fetch = async function previewFetch(url, options = {}) {
+        if (String(url).includes("/merchant/config")) {
+          return new Response(JSON.stringify({
+            assistant: {
+              name: "Sage",
+              welcomeMessage: window.shopChatConfig.welcomeMessage,
+              quickActions: ["Find the right product", "Compare options", "Ready to buy"]
+            },
+            widget: window.shopChatConfig.widget
+          }), {
+            headers: { "Content-Type": "application/json" }
+          });
+        }
+
         if (String(url).includes("/chat") && options.method === "POST") {
           const stream = new ReadableStream({
             start(controller) {
               const encoder = new TextEncoder();
               const events = [
                 { type: "id", conversation_id: "preview-conversation" },
-                { type: "tool_use", tool_use_message: "Calling tool: search_shop_catalog with arguments: {\"query\":\"best product for this shopper\",\"limit\":3}" },
+                { type: "tool_use", tool_use_message: "Calling tool: search_catalog with arguments: {\"query\":\"best product for this shopper\",\"limit\":3}" },
                 { type: "new_message" },
                 { type: "chunk", chunk: "I searched the catalog and found three strong matches. " },
-                { type: "chunk", chunk: "**Daily Hydration Set** is the safest recommendation for a simple routine. **Performance Bundle** is better if you want the most complete option. **Travel Essentials** is the low-commitment choice." },
+                { type: "chunk", chunk: "**Daily Hydration Set** is the simplest choice. **Performance Bundle** offers the most complete setup. **Travel Essentials** is the lower-commitment option." },
                 { type: "message_complete" },
                 { type: "end_turn" },
                 { type: "product_results", products: previewProducts }
@@ -241,7 +395,7 @@
                 setTimeout(() => {
                   controller.enqueue(encoder.encode(sseEvent(event)));
                   if (index === events.length - 1) controller.close();
-                }, 250 + index * 260);
+                }, 220 + index * 240);
               });
             }
           });

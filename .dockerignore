@@ -1,3 +1,10 @@
+.git
+.env
+.env.*
+!.env.example
 .cache
 build
 node_modules
+*.sqlite
+*.sqlite-journal
+shopify.app.*.toml

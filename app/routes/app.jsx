@@ -1,12 +1,12 @@
 import { Outlet, useLoaderData, useRouteError } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
-import { authenticate } from "../shopify.server";
+import { appApiKey, authenticate } from "../shopify.server";
 
 export const loader = async ({ request }) => {
   await authenticate.admin(request);
 
-  return { apiKey: process.env.SHOPIFY_API_KEY || "" };
+  return { apiKey: appApiKey };
 };
 
 export default function App() {
@@ -15,7 +15,11 @@ export default function App() {
   return (
     <AppProvider embedded apiKey={apiKey}>
       <s-app-nav>
-        <s-link href="/app">Home</s-link>
+        <s-link href="/app" rel="home">Home</s-link>
+        <s-link href="/app/assistant">Assistant</s-link>
+        <s-link href="/app/widget">Widget</s-link>
+        <s-link href="/app/knowledge">Knowledge</s-link>
+        <s-link href="/app/commerce">Commerce</s-link>
       </s-app-nav>
       <Outlet />
     </AppProvider>

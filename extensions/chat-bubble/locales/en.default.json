@@ -1,8 +1,19 @@
 {
   "chat": {
-    "title": "Store Assistant",
-    "inputPlaceholder": "Type your message here...",
+    "title": "Sage",
+    "subtitle": "Shopping assistant",
+    "choiceKicker": "Guided shopping",
+    "choiceTitle": "What can I help you find?",
+    "continueBrowsing": "Keep browsing",
+    "shopifyTrust": "Products, availability, cart, and checkout stay in Shopify.",
+    "suggestionsLabel": "Suggested shopping questions",
+    "quickFind": "Find the right product",
+    "quickCompare": "Compare options",
+    "quickBuy": "Ready to buy",
+    "inputLabel": "Message Sage",
+    "inputPlaceholder": "Ask about products, sizing, or fit",
     "sendButton": "Send",
-    "closeButton": "Close"
+    "closeButton": "Close",
+    "composerTrust": "Recommendations use current Shopify store data."
   }
 }

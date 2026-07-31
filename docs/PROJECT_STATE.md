@@ -1,5 +1,20 @@
 # IntentCart
 
+## Architecture baseline (2026-07-31)
+
+The security and persistence foundation now uses a signed Shopify App Proxy
+bootstrap, origin-bound widget credentials, a central merchant context,
+PostgreSQL Prisma models, per-shop configuration, durable commerce sessions,
+typed tools, an LLM gateway, tenant-filtered knowledge retrieval, append-only
+events, encrypted customer tokens, one-shot OAuth state, and idempotent Shopify
+webhooks. The authoritative implementation map is
+`docs/architecture-target.md`; deployment and migration procedures are under
+`docs/deployment/` and `docs/data/`.
+
+The remaining sections preserve product and UI maturity context. Where older
+storage/runtime statements conflict with the architecture baseline above, the
+baseline and source code are authoritative.
+
 ## Current vision
 
 IntentCart is an AI commerce layer for Shopify merchants.
@@ -54,12 +69,15 @@ Dependencies:
 
 Responsibility:
 - Runs the shopper-facing storefront experience.
-- Renders the floating chat bubble, shopping choice panel, fullscreen chat, messages, quick actions, product cards, cart state, and checkout handoff.
+- Renders compact bubble, side-panel, inline, and fullscreen shopping modes, plus messages, quick actions, product cards, cart state, and checkout handoff.
 - Resolves the backend URL from theme settings and loads storefront-safe merchant config from the public config endpoint.
 
 Current maturity:
 - MVP-ready and tested on a real Shopify dev store.
 - Real catalog search, product cards, cart update, and checkout link handoff work.
+- All four storefront layouts have browser-checked desktop and mobile states.
+- The launcher, panels, composer, and close actions expose keyboard and screen-reader semantics.
+- Shopper-facing progress hides internal tool names and arguments.
 - Development backend tunnel still requires manual Theme Editor update when the Shopify CLI tunnel changes.
 
 Dependencies:
@@ -116,12 +134,19 @@ Responsibility:
 - Establishes the information architecture for the future Merchant OS.
 
 Current maturity:
-- Read-only foundation.
-- Contains the target sections: Home, Assistant, Storefront, Knowledge, and Commerce.
+- Read-only operational embedded app with real sub-routes.
+- `/app` is the launch and status home.
+- `/app/assistant`, `/app/widget`, `/app/knowledge`, and `/app/commerce` are focused domain pages.
+- Shopify App Bridge owns primary navigation in the admin sidebar; page bodies do not repeat it.
+- Links directly to the active theme's App embeds editor, the storefront preview, and Shopify products.
+- The Widget page includes an interactive desktop/mobile preview of all four widget modes.
 - Does not yet edit or persist settings from the UI.
 
 Dependencies:
 - `app/routes/app._index.jsx`
+- `app/routes/app.{assistant,widget,knowledge,commerce}.jsx`
+- `app/components/intentcart/dashboard-ui.jsx`
+- `app/merchant/dashboard.server.js`
 - `app/styles/intentcart-dashboard.module.css`
 - `app/merchant/merchant.server.js`
 
@@ -129,12 +154,14 @@ Dependencies:
 
 Responsibility:
 - Packages the storefront widget for Shopify themes.
-- Exposes merchant-settable theme block settings such as backend URL.
+- Exposes merchant-settable layout, position, launcher, appearance, welcome, and entry-behavior settings.
 - Loads widget assets on the storefront.
 
 Current maturity:
 - Installable and visible in the Shopify Theme Editor.
 - Works on the real dev storefront.
+- Offers compact button, floating assistant, inline shopping block, and fullscreen shopping modes.
+- Keeps the raw assistant prompt out of Theme Editor settings.
 - Still depends on manual backend URL configuration during local Shopify CLI development.
 
 Dependencies:
@@ -190,7 +217,9 @@ Dependencies:
 - CORS helper usage for public widget endpoints.
 - Fetch and tool timeout helpers for avoiding infinite loading states.
 - Read-only Merchant OS dashboard information architecture.
+- Operational setup checklist and Theme Editor activation deep link.
 - Theme extension installation path.
+- Four responsive widget layouts with a shared runtime.
 - Product architecture documentation direction.
 
 This does not mean the full commercial product is production-ready. It means these foundations are stable enough to build on without rethinking the architecture.
@@ -209,7 +238,8 @@ This does not mean the full commercial product is production-ready. It means the
 - Cart update works after explicit shopper confirmation.
 - Checkout or cart URL is exposed after a successful cart update.
 - Merchant public config endpoint is available.
-- Embedded Shopify dashboard displays the current assistant, storefront, knowledge, and commerce behavior.
+- Embedded Shopify app pages display the current assistant, widget, knowledge, and commerce behavior.
+- Theme Editor controls visual widget settings without exposing runtime concepts.
 
 ---
 
@@ -271,6 +301,7 @@ Deferred by MVP boundary. Embedded checkout, Shop Pay handlers, Order MCP, order
 
 - Canonical product, cart, and checkout response schemas should be formalized beyond tolerant normalization.
 - Public config projection and widget config consumption need automated tests.
+- The four widget modes need automated visual regression coverage in addition to the local browser preview.
 - Analytics and integration event contracts are not defined yet.
 - Dashboard is read-only and has no validation-backed save flow.
 
@@ -279,10 +310,9 @@ Deferred by MVP boundary. Embedded checkout, Shop Pay handlers, Order MCP, order
 ## Product debt
 
 - Merchant dashboard does not yet let merchants edit assistant or storefront settings.
-- Widget visual settings are not yet fully controlled through the Merchant OS.
+- Widget visual settings live in Theme Editor and are not yet mirrored as editable Merchant OS settings.
 - Backend URL setup is too manual for a merchant-facing product.
-- Product cards can be improved for dense catalogs and mobile shopping.
-- Merchant onboarding is not yet represented in the embedded app.
+- The launch checklist is present, but there is no persisted onboarding completion state.
 - Knowledge and commerce sections explain behavior but do not yet provide controls.
 - No merchant-facing activity history exists for conversations, recommendations, or cart actions.
 

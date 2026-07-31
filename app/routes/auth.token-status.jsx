@@ -1,75 +1,42 @@
-import { getCustomerToken } from "../db.server";
-import { buildCorsHeaders } from "../lib/cors.server";
+import { ConversationIdSchema } from "../contracts/commerce.schemas.server";
+import { assertAllowedOrigin, buildCorsHeaders } from "../lib/cors.server";
+import { requireWidgetRequestContext } from "../security/merchant-context.server";
+import { getCustomerTokenStatus } from "../services/customer-token.server";
 
-/**
- * API endpoint for checking if a customer token is available for a given conversation ID
- * The chat interface can poll this endpoint after displaying an auth link
- */
 export async function loader({ request }) {
-  // Get conversation ID from query parameter
-  const url = new URL(request.url);
-  const conversationId = url.searchParams.get("conversation_id");
-
-  if (!conversationId) {
-    return new Response(JSON.stringify({
-      status: "error",
-      message: "Missing conversation_id parameter"
-    }), {
-      status: 400,
-      headers: corsHeaders(request)
-    });
-  }
-
+  const cors = buildCorsHeaders(request, {
+    methods: "GET, OPTIONS",
+    allowedHeaders: "Accept, Authorization, X-Request-Id"
+  });
   try {
-    // Check if a token exists for this conversation ID
-    const token = await getCustomerToken(conversationId);
-
-    if (token) {
-      // Token exists and is valid
-      return new Response(JSON.stringify({
-        status: "authorized",
-        expires_at: token.expiresAt.toISOString()
-      }), {
-        headers: corsHeaders(request)
-      });
-    } else {
-      // No token found or token expired
-      return new Response(JSON.stringify({
-        status: "unauthorized"
-      }), {
-        headers: corsHeaders(request)
-      });
-    }
+    assertAllowedOrigin(request);
+    const conversationId = ConversationIdSchema.parse(
+      new URL(request.url).searchParams.get("conversation_id")
+    );
+    const context = requireWidgetRequestContext(request, { conversationId });
+    return tokenStatusResponse(context, conversationId, cors);
   } catch (error) {
-    console.error("[auth] Error checking token status:", error);
-    return new Response(JSON.stringify({
-      status: "error",
-      message: "Failed to check token status"
-    }), {
-      status: 500,
-      headers: corsHeaders(request)
+    return Response.json({ error: "Unauthorized" }, {
+      status: Number(error.status || 401),
+      headers: cors
     });
   }
 }
 
-/**
- * Helper to add CORS headers to the response
- */
-function corsHeaders(request) {
-  return buildCorsHeaders(request, {
+export async function action({ request }) {
+  const cors = buildCorsHeaders(request, {
     methods: "GET, OPTIONS",
-    allowedHeaders: "Content-Type, Accept"
+    allowedHeaders: "Accept, Authorization, X-Request-Id"
+  });
+  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
+  return Response.json({ error: "Method not allowed" }, { status: 405, headers: cors });
+}
+
+async function tokenStatusResponse(context, conversationId, headers = {}) {
+  const token = await getCustomerTokenStatus(context, conversationId);
+  return Response.json(token
+    ? { status: "authorized", expires_at: token.expiresAt.toISOString() }
+    : { status: "unauthorized" }, {
+    headers: { "Cache-Control": "no-store", ...headers }
   });
 }
-
-// Handle OPTIONS requests for CORS preflight
-export const action = async ({ request }) => {
-  if (request.method.toLowerCase() === "options") {
-    return new Response(null, {
-      status: 204,
-      headers: corsHeaders(request)
-    });
-  }
-
-  return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405 });
-};

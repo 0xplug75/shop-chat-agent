@@ -1,0 +1,19 @@
+{
+  "chat": {
+    "title": "Sage",
+    "subtitle": "Assistant shopping",
+    "choiceKicker": "Shopping guide",
+    "choiceTitle": "Que puis-je vous aider à trouver ?",
+    "continueBrowsing": "Continuer mes achats",
+    "shopifyTrust": "Les produits, disponibilités, panier et paiement restent dans Shopify.",
+    "suggestionsLabel": "Questions suggérées",
+    "quickFind": "Trouver le bon produit",
+    "quickCompare": "Comparer les options",
+    "quickBuy": "Prêt à acheter",
+    "inputLabel": "Écrire à Sage",
+    "inputPlaceholder": "Produits, tailles, usages...",
+    "sendButton": "Envoyer",
+    "closeButton": "Fermer",
+    "composerTrust": "Les recommandations utilisent les données actuelles de la boutique Shopify."
+  }
+}

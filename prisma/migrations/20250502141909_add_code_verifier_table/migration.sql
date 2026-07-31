@@ -1,10 +1,11 @@
 -- CreateTable
 CREATE TABLE "CodeVerifier" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT NOT NULL,
     "state" TEXT NOT NULL,
     "verifier" TEXT NOT NULL,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "expiresAt" DATETIME NOT NULL
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "CodeVerifier_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex

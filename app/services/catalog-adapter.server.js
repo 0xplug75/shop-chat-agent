@@ -19,11 +19,12 @@ export function createCatalogAdapter(mcpClient) {
         }
       }
     });
+    assertToolResponse(response);
 
     return {
       toolName: AppConfig.tools.productSearchName,
       response,
-      products: response.error ? [] : toolService.processProductSearchResult(response)
+      products: toolService.processProductSearchResult(response)
     };
   };
 
@@ -48,4 +49,13 @@ export function createCatalogAdapter(mcpClient) {
     lookupCatalog,
     getProduct
   };
+}
+
+function assertToolResponse(response) {
+  if (!response?.error) return;
+  const error = new Error("Shopify catalog request failed");
+  error.code = response.error.type === "auth_required" ? "AUTH_REQUIRED" : "SHOPIFY_TOOL_FAILED";
+  error.authorizationUrl = response.error.authorizationUrl;
+  error.publicMessage = "The Shopify catalog is temporarily unavailable.";
+  throw error;
 }

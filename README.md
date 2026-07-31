@@ -28,6 +28,11 @@ A Shopify template app that lets you embed an AI-powered chat widget on your sto
 
 ## Architecture
 
+The current hardened architecture, request flows, data model, and residual risks
+are documented in [`docs/architecture-target.md`](./docs/architecture-target.md).
+The pre-hardening findings are preserved in
+[`docs/architecture-audit.md`](./docs/architecture-audit.md).
+
 ### Components
 This app consists of two main components:
 
@@ -39,7 +44,9 @@ When you start the app, it will:
 - Tunnel your local server so Shopify can reach it.
 - Provide a preview URL to install the app on your development store.
 
-For direct testing, point your test suite at the `/chat` endpoint (GET or POST for streaming).
+Storefront traffic should use the signed Shopify App Proxy under
+`/apps/intentcart`. Direct `/chat` compatibility requests require a short-lived
+widget bearer token and an allowed storefront origin.
 
 ### MCP Tools Integration
 - The backend already initializes all Shopify MCP tools—see [`app/mcp-client.js`](./app/mcp-client.js).
@@ -50,7 +57,7 @@ For direct testing, point your test suite at the `/chat` endpoint (GET or POST f
 - **Framework**: [React Router](https://reactrouter.com/)
 - **AI**: [Claude by Anthropic](https://www.anthropic.com/claude)
 - **Shopify Integration**: [@shopify/shopify-app-react-router](https://www.npmjs.com/package/@shopify/shopify-app-react-router)
-- **Database**: SQLite (via Prisma) for session storage
+- **Database**: PostgreSQL via Prisma (Supabase target)
 
 ## Customizations
 This repo can be customized. You can:
@@ -61,7 +68,11 @@ This repo can be customized. You can:
 You can learn how from our [dev docs](https://shopify.dev/docs/apps/build/storefront-mcp).
 
 ## Deployment
-Follow standard Shopify app deployment procedures as outlined in the [Shopify documentation](https://shopify.dev/docs/apps/deployment/web).
+Deployment is prepared but has not been executed. Follow
+[`docs/deployment/railway-supabase.md`](./docs/deployment/railway-supabase.md)
+for the Railway/Supabase checklist and
+[`docs/data/sqlite-to-postgres.md`](./docs/data/sqlite-to-postgres.md) for the
+development-data cutover strategy.
 
 ## Contributing
 We appreciate your interest in contributing to this project. As this is an example repository intended for educational and reference purposes, we are not accepting contributions.

@@ -1,20 +1,34 @@
 import { authenticate } from "../shopify.server";
-import db from "../db.server";
+import { createLogger } from "../lib/logger.server";
+import { processWebhookOnce, WebhookPayloadError } from "../services/webhook.server";
 
 export const action = async ({ request }) => {
-  const { shop, session, topic } = await authenticate.webhook(request);
+  const requestId = crypto.randomUUID();
+  const logger = createLogger({ requestId });
 
-  console.log(`Received ${topic} webhook for ${shop}`);
+  try {
+    const { shop, topic, webhookId, payload } = await authenticate.webhook(request);
+    const result = await processWebhookOnce({
+      webhookId,
+      topic,
+      shopDomain: shop,
+      payload
+    });
 
-  switch (topic) {
-    case 'APP_UNINSTALLED':
-      if (session) {
-        await db.session.deleteMany({where: {shop}});
-      }
-      break;
-    default:
-      throw new Response('Unhandled webhook topic', {status: 404});
+    logger.info("Shopify webhook processed", {
+      topic,
+      webhookId,
+      duplicate: result.duplicate,
+      handled: result.handled,
+      manualFollowUp: result.manualFollowUp
+    });
+    return new Response(null, { status: 204 });
+  } catch (error) {
+    if (error instanceof Response) throw error;
+    logger.error("Shopify webhook processing failed", { error });
+    if (error instanceof WebhookPayloadError) {
+      return Response.json({ error: "Invalid webhook payload", requestId }, { status: 400 });
+    }
+    return Response.json({ error: "Webhook could not be processed", requestId }, { status: 500 });
   }
-
-  return new Response();
 };

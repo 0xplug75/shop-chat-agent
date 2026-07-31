@@ -29,6 +29,9 @@
           position: window.shopChatConfig?.widget?.position || 'bottom-right',
           layout: window.shopChatConfig?.widget?.layout || 'bubble',
           primaryCtaLabel: window.shopChatConfig?.widget?.primaryCtaLabel || 'Shop with chat',
+          launcherLabel: window.shopChatConfig?.widget?.launcherLabel || 'Ask Sage',
+          launcherStyle: window.shopChatConfig?.widget?.launcherStyle || 'label',
+          cornerRadius: window.shopChatConfig?.widget?.cornerRadius || 12,
           colors: window.shopChatConfig?.widget?.colors || {},
           behavior: {
             openOnLoad: window.shopChatConfig?.widget?.behavior?.openOnLoad || false,
@@ -53,23 +56,10 @@
         const fallbackConfig = this.getEffectiveConfig();
 
         try {
-          const configUrl = ShopAIChat.API.buildBackendUrl('/merchant/config');
-          const response = await fetch(configUrl, {
-            method: 'GET',
-            headers: {
-              'Accept': 'application/json'
-            },
-            mode: 'cors'
-          });
-
-          if (!response.ok) {
-            throw new Error(`Merchant config request failed with ${response.status} ${response.statusText}`);
-          }
-
-          const publicConfig = await response.json();
+          const bootstrap = await ShopAIChat.API.ensureBootstrap();
+          const publicConfig = bootstrap.config;
           this.merchantConfig = publicConfig;
           this.applyToWindowConfig(publicConfig);
-          console.log('[IntentCart] merchant config loaded');
         } catch (error) {
           console.warn('[IntentCart] merchant config unavailable, using storefront defaults:', error.message);
           this.merchantConfig = fallbackConfig;
@@ -137,6 +127,7 @@
     UI: {
       elements: {},
       isMobile: false,
+      lastFocusedElement: null,
 
       /**
        * Initialize UI elements and event listeners
@@ -159,11 +150,14 @@
           sendButton: container.querySelector('.shop-ai-chat-send'),
           messagesContainer: container.querySelector('.shop-ai-chat-messages'),
           suggestionsContainer: container.querySelector('.shop-ai-suggestions'),
-          promptButtons: container.querySelectorAll('[data-shop-ai-prompt]')
+          promptButtons: container.querySelectorAll('[data-shop-ai-prompt]'),
+          assistantNameNodes: container.querySelectorAll('[data-shop-ai-assistant-name]')
         };
 
         // Detect mobile device
-        this.isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        this.isMobile =
+          /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ||
+          window.matchMedia('(max-width: 640px)').matches;
 
         // Apply merchant widget settings before binding handlers.
         this.applyMerchantConfig(container);
@@ -176,6 +170,7 @@
           this.setupMobileViewport();
         }
 
+        this.updateSendState();
         this.applyInitialWidgetBehavior();
       },
 
@@ -196,6 +191,7 @@
         } = this.elements;
 
         chatBubble?.addEventListener('click', () => {
+          this.lastFocusedElement = chatBubble;
           if (this.opensDirectly()) {
             this.openChatMode();
           } else {
@@ -203,16 +199,23 @@
           }
         });
 
-        choiceCloseButton?.addEventListener('click', () => this.closeChoicePanel());
-        continueBrowsingButton?.addEventListener('click', () => this.closeChoicePanel());
+        choiceCloseButton?.addEventListener('click', () => {
+          this.closeChoicePanel();
+          chatBubble?.focus();
+        });
+        continueBrowsingButton?.addEventListener('click', () => {
+          this.closeChoicePanel();
+          chatBubble?.focus();
+        });
         startChatButton?.addEventListener('click', () => this.openChatMode());
 
         // Close chat window
-        closeButton.addEventListener('click', () => this.closeChatWindow());
+        closeButton?.addEventListener('click', () => this.closeChatWindow());
 
         // Send message when pressing Enter in input
-        chatInput.addEventListener('keypress', (e) => {
+        chatInput?.addEventListener('keydown', (e) => {
           if (e.key === 'Enter' && chatInput.value.trim() !== '') {
+            e.preventDefault();
             ShopAIChat.Message.send(chatInput, messagesContainer);
 
             // On mobile, handle keyboard
@@ -223,8 +226,10 @@
           }
         });
 
+        chatInput?.addEventListener('input', () => this.updateSendState());
+
         // Send message when clicking send button
-        sendButton.addEventListener('click', () => {
+        sendButton?.addEventListener('click', () => {
           if (chatInput.value.trim() !== '') {
             ShopAIChat.Message.send(chatInput, messagesContainer);
 
@@ -240,6 +245,17 @@
             chatInput.value = button.dataset.shopAiPrompt || button.textContent.trim();
             ShopAIChat.Message.send(chatInput, messagesContainer);
           });
+        });
+
+        document.addEventListener('keydown', (event) => {
+          if (event.key !== 'Escape') return;
+
+          if (this.elements.chatWindow?.classList.contains('active')) {
+            this.closeChatWindow();
+          } else if (this.elements.choicePanel?.classList.contains('active')) {
+            this.closeChoicePanel();
+            this.elements.chatBubble?.focus();
+          }
         });
 
         // Handle window resize to adjust scrolling
@@ -278,7 +294,23 @@
           this.elements.startChatButton.textContent = widgetConfig.primaryCtaLabel;
         }
 
+        if (widgetConfig.cornerRadius !== undefined) {
+          const radius = Math.max(0, Math.min(24, Number(widgetConfig.cornerRadius) || 0));
+          container.style.setProperty('--shop-ai-radius', `${radius}px`);
+        }
+
+        this.elements.assistantNameNodes?.forEach((node) => {
+          node.textContent = assistantConfig.name || ShopAIChat.Config.defaults.assistant.name;
+        });
+
         this.renderQuickActions(assistantConfig.quickActions, widgetConfig.behavior);
+      },
+
+      updateSendState: function() {
+        const { chatInput, sendButton } = this.elements;
+        if (!chatInput || !sendButton) return;
+
+        sendButton.disabled = chatInput.value.trim().length === 0;
       },
 
       /**
@@ -375,7 +407,7 @@
         const layout = this.getWidgetLayout();
 
         if (layout === 'inline' && behavior.entryBehavior === 'direct') {
-          window.setTimeout(() => this.openChatMode(), 250);
+          window.setTimeout(() => this.openChatMode(false), 250);
           return;
         }
 
@@ -385,7 +417,7 @@
         }
 
         if (behavior.openOnLoad) {
-          window.setTimeout(() => this.openChatMode(), 600);
+          window.setTimeout(() => this.openChatMode(false), 600);
         }
       },
 
@@ -409,7 +441,7 @@
           : ShopAIChat.Config.defaults.assistant.quickActions;
 
         suggestionsContainer.hidden = false;
-        suggestionsContainer.innerHTML = '';
+        suggestionsContainer.replaceChildren();
 
         actions.forEach((label) => {
           const button = document.createElement('button');
@@ -437,7 +469,7 @@
        * Open the initial shopping choice panel
        */
       openChoicePanel: function() {
-        const { choicePanel, chatWindow } = this.elements;
+        const { container, chatBubble, choicePanel, chatWindow } = this.elements;
         const layout = this.getWidgetLayout();
 
         if (!choicePanel) {
@@ -452,6 +484,10 @@
 
         choicePanel.classList.add('active');
         choicePanel.setAttribute('aria-hidden', 'false');
+        chatWindow?.setAttribute('aria-hidden', 'true');
+        chatBubble?.setAttribute('aria-expanded', 'true');
+        container?.classList.add('shop-ai-choice-active');
+        container?.classList.remove('shop-ai-chat-active');
 
         if (layout === 'inline') {
           document.body.classList.remove('shop-ai-chat-open');
@@ -462,30 +498,38 @@
        * Close the initial shopping choice panel
        */
       closeChoicePanel: function() {
-        const { choicePanel } = this.elements;
+        const { container, chatBubble, choicePanel, chatWindow } = this.elements;
         if (!choicePanel) return;
 
         choicePanel.classList.remove('active');
         choicePanel.setAttribute('aria-hidden', 'true');
+        container?.classList.remove('shop-ai-choice-active');
+
+        if (!chatWindow?.classList.contains('active')) {
+          chatBubble?.setAttribute('aria-expanded', 'false');
+        }
       },
 
       /**
        * Open the full chat buying mode
        */
-      openChatMode: function() {
-        const { chatWindow, chatInput } = this.elements;
+      openChatMode: function(shouldFocus = true) {
+        const { container, chatBubble, chatWindow, chatInput } = this.elements;
 
         this.closeChoicePanel();
         chatWindow.classList.add('active');
+        chatWindow.setAttribute('aria-hidden', 'false');
+        chatBubble?.setAttribute('aria-expanded', 'true');
+        container?.classList.add('shop-ai-chat-active');
 
-        if (this.getWidgetLayout() !== 'inline') {
+        if (this.getWidgetLayout() === 'fullscreen' || this.isMobile) {
           document.body.classList.add('shop-ai-chat-open');
         }
 
-        if (this.isMobile) {
-          setTimeout(() => chatInput.focus(), 500);
-        } else {
-          chatInput.focus();
+        if (shouldFocus && this.isMobile) {
+          setTimeout(() => chatInput?.focus(), 500);
+        } else if (shouldFocus) {
+          chatInput?.focus();
         }
 
         this.scrollToBottom();
@@ -495,9 +539,12 @@
        * Close chat window
        */
       closeChatWindow: function() {
-        const { chatWindow, chatInput } = this.elements;
+        const { container, chatBubble, chatWindow, chatInput } = this.elements;
 
         chatWindow.classList.remove('active');
+        chatWindow.setAttribute('aria-hidden', 'true');
+        chatBubble?.setAttribute('aria-expanded', 'false');
+        container?.classList.remove('shop-ai-chat-active');
         document.body.classList.remove('shop-ai-chat-open');
 
         if (this.getWidgetLayout() === 'inline') {
@@ -506,7 +553,13 @@
 
         // On mobile, blur input to hide keyboard and enable body scrolling
         if (this.isMobile) {
-          chatInput.blur();
+          chatInput?.blur();
+        }
+
+        if (this.getWidgetLayout() !== 'inline') {
+          window.setTimeout(() => {
+            (this.lastFocusedElement || chatBubble)?.focus();
+          }, 0);
         }
       },
 
@@ -528,7 +581,9 @@
 
         const typingIndicator = document.createElement('div');
         typingIndicator.classList.add('shop-ai-typing-indicator');
-        typingIndicator.innerHTML = '<span></span><span></span><span></span>';
+        for (let index = 0; index < 3; index += 1) {
+          typingIndicator.appendChild(document.createElement('span'));
+        }
         messagesContainer.appendChild(typingIndicator);
         this.scrollToBottom();
       },
@@ -560,7 +615,9 @@
         // Add a header for the product results
         const header = document.createElement('div');
         header.classList.add('shop-ai-product-header');
-        header.innerHTML = '<h4>Recommended from the catalog</h4>';
+        const heading = document.createElement('h4');
+        heading.textContent = 'Recommended from the catalog';
+        header.appendChild(heading);
         productSection.appendChild(header);
 
         // Create the product grid container
@@ -597,17 +654,20 @@
         const userMessage = chatInput.value.trim();
         const conversationId = sessionStorage.getItem('shopAiConversationId');
 
+        messagesContainer.classList.add('shop-ai-conversation-started');
+
         // Add user message to chat
         this.add(userMessage, 'user', messagesContainer);
 
         // Clear input
         chatInput.value = '';
+        ShopAIChat.UI.updateSendState();
 
         // Show typing indicator
         ShopAIChat.UI.showTypingIndicator();
 
         try {
-          ShopAIChat.API.streamResponse(userMessage, conversationId, messagesContainer);
+          await ShopAIChat.API.streamResponse(userMessage, conversationId, messagesContainer);
         } catch (error) {
           console.error('Error communicating with Claude API:', error);
           ShopAIChat.UI.removeTypingIndicator();
@@ -640,75 +700,25 @@
       },
 
       /**
-       * Add a tool use message to the chat with expandable arguments
-       * @param {string} toolMessage - Tool use message content
+       * Show shopper-facing progress without exposing tool names or arguments.
+       * @param {string} toolMessage - Internal tool event from the stream
        * @param {HTMLElement} messagesContainer - The messages container
        */
-      addToolUse: function(toolMessage, messagesContainer) {
-        // Parse the tool message to extract tool name and arguments
-        const match = toolMessage.match(/Calling tool: (\w+) with arguments: (.+)/);
-        if (!match) {
-          // Fallback for unexpected format
-          const toolUseElement = document.createElement('div');
-          toolUseElement.classList.add('shop-ai-message', 'tool-use');
-          toolUseElement.textContent = toolMessage;
-          messagesContainer.appendChild(toolUseElement);
-          ShopAIChat.UI.scrollToBottom();
-          return;
-        }
+      addProgress: function(toolMessage, messagesContainer) {
+        const match = toolMessage.match(/Calling tool: ([\w-]+)/);
+        const toolName = match?.[1] || '';
+        const labels = {
+          search_catalog: 'Searching the Shopify catalog',
+          search_shop_catalog: 'Searching the Shopify catalog',
+          search_shop_policies_and_faqs: 'Checking store information',
+          get_cart: 'Checking your Shopify cart',
+          update_cart: 'Updating your Shopify cart'
+        };
+        const progressElement = document.createElement('div');
+        progressElement.classList.add('shop-ai-progress-message');
+        progressElement.textContent = labels[toolName] || 'Checking the store';
 
-        const toolName = match[1];
-        const argsString = match[2];
-
-        // Create the main tool use element
-        const toolUseElement = document.createElement('div');
-        toolUseElement.classList.add('shop-ai-message', 'tool-use');
-
-        // Create the header (always visible)
-        const headerElement = document.createElement('div');
-        headerElement.classList.add('shop-ai-tool-header');
-
-        const toolText = document.createElement('span');
-        toolText.classList.add('shop-ai-tool-text');
-        toolText.textContent = `Calling tool: ${toolName}`;
-
-        const toggleElement = document.createElement('span');
-        toggleElement.classList.add('shop-ai-tool-toggle');
-        toggleElement.textContent = '[+]';
-
-        headerElement.appendChild(toolText);
-        headerElement.appendChild(toggleElement);
-
-        // Create the arguments section (initially hidden)
-        const argsElement = document.createElement('div');
-        argsElement.classList.add('shop-ai-tool-args');
-
-        try {
-          // Try to format JSON arguments nicely
-          const parsedArgs = JSON.parse(argsString);
-          argsElement.textContent = JSON.stringify(parsedArgs, null, 2);
-        } catch (e) {
-          // If not valid JSON, just show as-is
-          argsElement.textContent = argsString;
-        }
-
-        // Add click handler to toggle arguments visibility
-        headerElement.addEventListener('click', function() {
-          const isExpanded = argsElement.classList.contains('expanded');
-          if (isExpanded) {
-            argsElement.classList.remove('expanded');
-            toggleElement.textContent = '[+]';
-          } else {
-            argsElement.classList.add('expanded');
-            toggleElement.textContent = '[-]';
-          }
-        });
-
-        // Assemble the complete element
-        toolUseElement.appendChild(headerElement);
-        toolUseElement.appendChild(argsElement);
-
-        messagesContainer.appendChild(toolUseElement);
+        messagesContainer.appendChild(progressElement);
         ShopAIChat.UI.scrollToBottom();
       }
     },
@@ -723,101 +733,153 @@
        */
       formatMessageContent: function(element) {
         if (!element || !element.dataset.rawText) return;
-
-        const rawText = element.dataset.rawText;
-
-        // Process the text with various Markdown features
-        let processedText = rawText;
-
-        // Process Markdown links
-        const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
-        processedText = processedText.replace(markdownLinkRegex, (match, text, url) => {
-          // Check if it's an auth URL
-          if (url.includes('shopify.com/authentication') &&
-             (url.includes('oauth/authorize') || url.includes('authentication'))) {
-            // Store the auth URL in a global variable for later use - this avoids issues with onclick handlers
-            window.shopAuthUrl = url;
-            // Just return normal link that will be handled by the document click handler
-            return '<a href="#auth" class="shop-auth-trigger">' + text + '</a>';
-          }
-          // If it's a checkout link, replace the text
-          else if (url.includes('/cart') || url.includes('checkout')) {
-            return '<a href="' + url + '" target="_blank" rel="noopener noreferrer">click here to proceed to checkout</a>';
-          } else {
-            // For normal links, preserve the original text
-            return '<a href="' + url + '" target="_blank" rel="noopener noreferrer">' + text + '</a>';
-          }
-        });
-
-        // Convert text to HTML with proper list handling
-        processedText = this.convertMarkdownToHtml(processedText);
-
-        // Apply the formatted HTML
-        element.innerHTML = processedText;
+        element.replaceChildren(this.buildSafeFragment(element.dataset.rawText));
       },
 
       /**
-       * Convert Markdown text to HTML with list support
+       * Render the small supported Markdown subset without HTML parsing.
        * @param {string} text - Markdown text to convert
-       * @returns {string} HTML content
+       * @returns {DocumentFragment} Safe message content
        */
-      convertMarkdownToHtml: function(text) {
-        text = text.replace(/(\*\*|__)(.*?)\1/g, '<strong>$2</strong>');
+      buildSafeFragment: function(text) {
+        const fragment = document.createDocumentFragment();
         const lines = text.split('\n');
         let currentList = null;
-        let listItems = [];
-        let htmlContent = '';
-        let startNumber = 1;
-
-        for (let i = 0; i < lines.length; i++) {
-          const line = lines[i];
+        for (const line of lines) {
           const unorderedMatch = line.match(/^\s*([-*])\s+(.*)/);
-          const orderedMatch = line.match(/^\s*(\d+)[\.)]\s+(.*)/);
+          const orderedMatch = line.match(/^\s*(\d+)[.)]\s+(.*)/);
 
           if (unorderedMatch) {
-            if (currentList !== 'ul') {
-              if (currentList === 'ol') {
-                htmlContent += `<ol start="${startNumber}">` + listItems.join('') + '</ol>';
-                listItems = [];
-              }
-              currentList = 'ul';
+            if (!currentList || currentList.tagName !== 'UL') {
+              currentList = document.createElement('ul');
+              fragment.appendChild(currentList);
             }
-            listItems.push('<li>' + unorderedMatch[2] + '</li>');
+            const item = document.createElement('li');
+            this.appendInlineContent(item, unorderedMatch[2]);
+            currentList.appendChild(item);
           } else if (orderedMatch) {
-            if (currentList !== 'ol') {
-              if (currentList === 'ul') {
-                htmlContent += '<ul>' + listItems.join('') + '</ul>';
-                listItems = [];
-              }
-              currentList = 'ol';
-              startNumber = parseInt(orderedMatch[1], 10);
+            if (!currentList || currentList.tagName !== 'OL') {
+              currentList = document.createElement('ol');
+              currentList.start = Number.parseInt(orderedMatch[1], 10);
+              fragment.appendChild(currentList);
             }
-            listItems.push('<li>' + orderedMatch[2] + '</li>');
+            const item = document.createElement('li');
+            this.appendInlineContent(item, orderedMatch[2]);
+            currentList.appendChild(item);
           } else {
-            if (currentList) {
-              htmlContent += currentList === 'ul'
-                ? '<ul>' + listItems.join('') + '</ul>'
-                : `<ol start="${startNumber}">` + listItems.join('') + '</ol>';
-              listItems = [];
-              currentList = null;
-            }
-
+            currentList = null;
             if (line.trim() === '') {
-              htmlContent += '<br>';
+              fragment.appendChild(document.createElement('br'));
             } else {
-              htmlContent += '<p>' + line + '</p>';
+              const paragraph = document.createElement('p');
+              this.appendInlineContent(paragraph, line);
+              fragment.appendChild(paragraph);
             }
           }
         }
+        return fragment;
+      },
 
-        if (currentList) {
-          htmlContent += currentList === 'ul'
-            ? '<ul>' + listItems.join('') + '</ul>'
-            : `<ol start="${startNumber}">` + listItems.join('') + '</ol>';
+      appendInlineContent: function(parent, text) {
+        const tokenPattern = /(\[([^\]]+)\]\(([^)\s]+)\)|(\*\*|__)(.*?)\4)/g;
+        let cursor = 0;
+        let match;
+        while ((match = tokenPattern.exec(text)) !== null) {
+          if (match.index > cursor) {
+            parent.appendChild(document.createTextNode(text.slice(cursor, match.index)));
+          }
+          if (match[2] !== undefined) {
+            this.appendSafeLink(parent, match[2], match[3]);
+          } else {
+            const strong = document.createElement('strong');
+            strong.textContent = match[5] || '';
+            parent.appendChild(strong);
+          }
+          cursor = match.index + match[0].length;
+        }
+        if (cursor < text.length) {
+          parent.appendChild(document.createTextNode(text.slice(cursor)));
+        }
+      },
+
+      appendSafeLink: function(parent, label, rawUrl) {
+        const url = this.safeHttpUrl(rawUrl);
+        if (!url) {
+          parent.appendChild(document.createTextNode(label));
+          return;
         }
 
-        htmlContent = htmlContent.replace(/<\/p><p>/g, '</p>\n<p>');
-        return htmlContent;
+        const link = document.createElement('a');
+        const isAuth = this.isTrustedAuthUrl(url);
+        if (isAuth) {
+          window.shopAuthUrl = url.toString();
+          link.href = '#auth';
+          link.classList.add('shop-auth-trigger');
+        } else {
+          link.href = url.toString();
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+        }
+        link.textContent = url.pathname.includes('/cart') || url.pathname.includes('checkout')
+          ? 'click here to proceed to checkout'
+          : label;
+        parent.appendChild(link);
+      },
+
+      safeHttpUrl: function(value) {
+        try {
+          const url = new URL(value, window.location.origin);
+          const isLocal = ['localhost', '127.0.0.1'].includes(url.hostname);
+          return url.protocol === 'https:' || (url.protocol === 'http:' && isLocal) ? url : null;
+        } catch (_error) {
+          return null;
+        }
+      },
+
+      safeProductUrl: function(value) {
+        const url = this.safeHttpUrl(value);
+        if (!url || !this.isCurrentShopHost(url.hostname)) return null;
+        return url;
+      },
+
+      safeImageUrl: function(value) {
+        const url = this.safeHttpUrl(value);
+        if (!url) return null;
+        const host = url.hostname.toLowerCase();
+        return this.isCurrentShopHost(host) ||
+          host === 'cdn.shopify.com' ||
+          host.endsWith('.shopifycdn.net')
+          ? url
+          : null;
+      },
+
+      safeCheckoutUrl: function(value) {
+        const url = this.safeHttpUrl(value);
+        if (!url || !this.isCurrentShopHost(url.hostname)) return null;
+        const path = url.pathname.toLowerCase();
+        return path.includes('checkout') || path.startsWith('/cart/c/') ? url : null;
+      },
+
+      isCurrentShopHost: function(hostname) {
+        const host = String(hostname || '').toLowerCase();
+        const canonical = ShopAIChat.API.bootstrapData?.shop?.domain?.toLowerCase();
+        let storefrontHost = window.location.hostname.toLowerCase();
+        try {
+          storefrontHost = new URL(
+            ShopAIChat.API.bootstrapData?.shop?.storefrontOrigin || window.location.origin
+          ).hostname.toLowerCase();
+        } catch (_error) {
+          // The current storefront hostname remains the safe fallback.
+        }
+        return host === storefrontHost || host === canonical;
+      },
+
+      isTrustedAuthUrl: function(url) {
+        const host = url.hostname.toLowerCase();
+        const shopDomain = ShopAIChat.API.bootstrapData?.shop?.domain?.toLowerCase() || '';
+        const accountHost = shopDomain.replace(/\.myshopify\.com$/, '.account.myshopify.com');
+        const trustedHost = host === 'shopify.com' || host.endsWith('.shopify.com') || host === accountHost;
+        return trustedHost && (url.pathname.includes('oauth') || url.pathname.includes('authentication'));
       }
     },
 
@@ -825,6 +887,33 @@
      * API communication and data handling
      */
     API: {
+      bootstrapData: null,
+
+      ensureBootstrap: async function(force = false) {
+        const expiresAt = this.bootstrapData?.expiresAt
+          ? new Date(this.bootstrapData.expiresAt).getTime()
+          : 0;
+        if (!force && this.bootstrapData?.token && expiresAt > Date.now() + 30_000) {
+          return this.bootstrapData;
+        }
+
+        const configuredBaseUrl = window.shopChatConfig?.backendUrl?.trim();
+        const appProxyBaseUrl = configuredBaseUrl?.startsWith('/') && configuredBaseUrl !== '/'
+          ? this.getBackendBaseUrl()
+          : '/apps/intentcart';
+        const response = await fetch(`${appProxyBaseUrl}/bootstrap`, {
+          method: 'GET',
+          headers: { 'Accept': 'application/json' },
+          credentials: 'same-origin',
+          cache: 'no-store'
+        });
+        if (!response.ok) throw new Error(`Widget bootstrap failed with ${response.status}`);
+        const payload = await response.json();
+        if (!payload?.token || !payload?.config) throw new Error('Widget bootstrap response is invalid');
+        this.bootstrapData = payload;
+        return payload;
+      },
+
       /**
        * Get the configured backend base URL.
        * Supports absolute app dev tunnel URLs and same-origin app proxy paths.
@@ -832,10 +921,16 @@
        */
       getBackendBaseUrl: function() {
         const configuredUrl = window.shopChatConfig?.backendUrl?.trim();
+        if (!configuredUrl || configuredUrl === '/') return '/apps/intentcart';
 
-        if (!configuredUrl) return '';
-
-        return configuredUrl.replace(/\/+$/, '');
+        try {
+          const url = new URL(configuredUrl, window.location.origin);
+          const isLocalDev = ['localhost', '127.0.0.1'].includes(url.hostname);
+          if (url.protocol !== 'https:' && !isLocalDev) return '/apps/intentcart';
+          return url.toString().replace(/\/+$/, '');
+        } catch (_error) {
+          return '/apps/intentcart';
+        }
       },
 
       /**
@@ -847,9 +942,40 @@
         const normalizedPath = path.startsWith('/') ? path : `/${path}`;
         const backendBaseUrl = this.getBackendBaseUrl();
 
-        if (!backendBaseUrl) return normalizedPath;
-
         return `${backendBaseUrl}${normalizedPath}`;
+      },
+
+      getAuthorizedHeaders: function(additionalHeaders = {}) {
+        return {
+          ...additionalHeaders,
+          ...(this.bootstrapData?.token
+            ? { 'Authorization': `Bearer ${this.bootstrapData.token}` }
+            : {})
+        };
+      },
+
+      authorizedFetch: async function(url, options = {}, retry = true) {
+        await this.ensureBootstrap();
+        const response = await fetch(url, {
+          ...options,
+          headers: this.getAuthorizedHeaders(options.headers || {})
+        });
+        if (response.status !== 401 || !retry) return response;
+
+        await this.ensureBootstrap(true);
+        return fetch(url, {
+          ...options,
+          headers: this.getAuthorizedHeaders(options.headers || {})
+        });
+      },
+
+      getVisitorId: function() {
+        let visitorId = sessionStorage.getItem('shopAiVisitorId');
+        if (!visitorId) {
+          visitorId = crypto.randomUUID();
+          sessionStorage.setItem('shopAiVisitorId', visitorId);
+        }
+        return visitorId;
       },
 
       /**
@@ -862,30 +988,25 @@
         let currentMessageElement = null;
 
         try {
+          await this.ensureBootstrap();
           const promptType = window.shopChatConfig?.promptType || "standardAssistant";
           const requestBody = JSON.stringify({
             message: userMessage,
             conversation_id: conversationId,
+            visitor_id: this.getVisitorId(),
             prompt_type: promptType
           });
 
           const streamUrl = this.buildBackendUrl('/chat');
-          const shopId = window.shopId;
 
-          console.log('[IntentCart] resolved backendUrl:', window.shopChatConfig?.backendUrl || '');
-          console.log('[IntentCart] POST /chat URL:', streamUrl);
-
-          const response = await fetch(streamUrl, {
+          const response = await this.authorizedFetch(streamUrl, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Accept': 'text/event-stream',
-              'X-Shopify-Shop-Id': shopId
+              'Accept': 'text/event-stream'
             },
             body: requestBody
           });
-
-          console.log('[IntentCart] POST /chat status:', response.status, response.statusText);
 
           if (!response.ok) {
             throw new Error(`Chat request failed with ${response.status} ${response.statusText}`);
@@ -909,9 +1030,13 @@
           currentMessageElement = messageElement;
 
           // Process the stream
-          while (true) {
+          let streamDone = false;
+          while (!streamDone) {
             const { value, done } = await reader.read();
-            if (done) break;
+            if (done) {
+              streamDone = true;
+              continue;
+            }
 
             buffer += decoder.decode(value, { stream: true });
             const lines = buffer.split('\n\n');
@@ -922,7 +1047,6 @@
                 try {
                   const data = JSON.parse(line.slice(6));
                   receivedStreamEvent = true;
-                  console.log('[IntentCart] SSE event:', data.type, data);
                   this.handleStreamEvent(data, currentMessageElement, messagesContainer, userMessage,
                     (newElement) => { currentMessageElement = newElement; });
                 } catch (e) {
@@ -993,6 +1117,12 @@
           case 'auth_required':
             // Save the last user message for resuming after authentication
             sessionStorage.setItem('shopAiLastMessage', userMessage || '');
+            {
+              const authUrl = ShopAIChat.Formatting.safeHttpUrl(data.authorization_url);
+              if (authUrl && ShopAIChat.Formatting.isTrustedAuthUrl(authUrl)) {
+                ShopAIChat.Auth.openAuthPopup(authUrl.toString());
+              }
+            }
             break;
 
           case 'product_results':
@@ -1000,9 +1130,11 @@
             break;
 
           case 'cart_state':
-            if (data.checkoutUrl) {
+            {
+              const checkoutUrl = ShopAIChat.Formatting.safeCheckoutUrl(data.checkoutUrl);
+              if (!checkoutUrl) break;
               ShopAIChat.Message.add(
-                `Your cart is ready. You can [click here to proceed to checkout](${data.checkoutUrl}).`,
+                `Your cart is ready. You can [click here to proceed to checkout](${checkoutUrl.toString()}).`,
                 'assistant',
                 messagesContainer
               );
@@ -1011,11 +1143,11 @@
 
           case 'tool_use':
             if (data.tool_use_message) {
-              ShopAIChat.Message.addToolUse(data.tool_use_message, messagesContainer);
+              ShopAIChat.Message.addProgress(data.tool_use_message, messagesContainer);
             }
             break;
 
-          case 'new_message':
+          case 'new_message': {
             ShopAIChat.Formatting.formatMessageContent(currentMessageElement);
             ShopAIChat.UI.showTypingIndicator();
 
@@ -1029,6 +1161,7 @@
             // Update the current element reference
             updateCurrentElement(newMessageElement);
             break;
+          }
 
           case 'content_block_complete':
             ShopAIChat.UI.showTypingIndicator();
@@ -1043,6 +1176,7 @@
        */
       fetchChatHistory: async function(conversationId, messagesContainer) {
         try {
+          await this.ensureBootstrap();
           // Show a loading message
           const loadingMessage = document.createElement('div');
           loadingMessage.classList.add('shop-ai-message', 'assistant');
@@ -1051,9 +1185,7 @@
 
           // Fetch history from the server
           const historyUrl = this.buildBackendUrl(`/chat?history=true&conversation_id=${encodeURIComponent(conversationId)}`);
-          console.log('Fetching history from:', historyUrl);
-
-          const response = await fetch(historyUrl, {
+          const response = await this.authorizedFetch(historyUrl, {
             method: 'GET',
             headers: {
               'Accept': 'application/json',
@@ -1078,6 +1210,8 @@
             ShopAIChat.Message.add(welcomeMessage, 'assistant', messagesContainer);
             return;
           }
+
+          messagesContainer.classList.add('shop-ai-conversation-started');
 
           // Add messages to the UI - filter out tool results
           data.messages.forEach(message => {
@@ -1137,6 +1271,13 @@
           }
         }
 
+        const safeAuthUrl = ShopAIChat.Formatting.safeHttpUrl(authUrl);
+        if (!safeAuthUrl || !ShopAIChat.Formatting.isTrustedAuthUrl(safeAuthUrl)) {
+          console.error('Untrusted authentication URL rejected');
+          return;
+        }
+        authUrl = safeAuthUrl.toString();
+
         // Open the popup window centered in the screen
         const width = 600;
         const height = 700;
@@ -1178,7 +1319,6 @@
       startTokenPolling: function(conversationId, messagesContainer) {
         if (!conversationId) return;
 
-        console.log('Starting token polling for conversation:', conversationId);
         const pollingId = 'polling_' + Date.now();
         sessionStorage.setItem('shopAiTokenPollingId', pollingId);
 
@@ -1187,22 +1327,24 @@
 
         const poll = async () => {
           if (sessionStorage.getItem('shopAiTokenPollingId') !== pollingId) {
-            console.log('Another polling session has started, stopping this one');
             return;
           }
 
           if (attemptCount >= maxAttempts) {
-            console.log('Max polling attempts reached, stopping');
             return;
           }
 
           attemptCount++;
 
           try {
+            await ShopAIChat.API.ensureBootstrap();
             const tokenUrl = ShopAIChat.API.buildBackendUrl(
               `/auth/token-status?conversation_id=${encodeURIComponent(conversationId)}`
             );
-            const response = await fetch(tokenUrl);
+            const response = await ShopAIChat.API.authorizedFetch(tokenUrl, {
+              headers: { 'Accept': 'application/json' },
+              cache: 'no-store'
+            });
 
             if (!response.ok) {
               throw new Error('Token status check failed: ' + response.status);
@@ -1211,7 +1353,6 @@
             const data = await response.json();
 
             if (data.status === 'authorized') {
-              console.log('Token available, resuming conversation');
               const message = sessionStorage.getItem('shopAiLastMessage');
 
               if (message) {
@@ -1228,7 +1369,6 @@
               return;
             }
 
-            console.log('Token not available yet, polling again in 10s');
             setTimeout(poll, 10000);
           } catch (error) {
             console.error('Error polling for token status:', error);
@@ -1259,11 +1399,13 @@
 
         // Add product image or placeholder
         const image = document.createElement('img');
-        image.src = product.image_url || 'https://cdn.shopify.com/s/files/1/0533/2089/files/placeholder-images-image_large.png';
-        image.alt = product.title;
+        const placeholderImage = 'https://cdn.shopify.com/s/files/1/0533/2089/files/placeholder-images-image_large.png';
+        const safeImageUrl = ShopAIChat.Formatting.safeImageUrl(product.image_url);
+        image.src = safeImageUrl?.toString() || placeholderImage;
+        image.alt = String(product.title || 'Product');
         image.onerror = function() {
           // If image fails to load, use a fallback placeholder
-          this.src = 'https://cdn.shopify.com/s/files/1/0533/2089/files/placeholder-images-image_large.png';
+          this.src = placeholderImage;
         };
         imageContainer.appendChild(image);
         card.appendChild(imageContainer);
@@ -1275,14 +1417,16 @@
         // Add product title
         const title = document.createElement('h3');
         title.classList.add('shop-ai-product-title');
-        title.textContent = product.title;
+        title.textContent = String(product.title || 'Product');
 
         // If product has a URL, make the title a link
-        if (product.url) {
+        const safeProductUrl = ShopAIChat.Formatting.safeProductUrl(product.url);
+        if (safeProductUrl) {
           const titleLink = document.createElement('a');
-          titleLink.href = product.url;
+          titleLink.href = safeProductUrl.toString();
           titleLink.target = '_blank';
-          titleLink.textContent = product.title;
+          titleLink.rel = 'noopener noreferrer';
+          titleLink.textContent = String(product.title || 'Product');
           title.textContent = '';
           title.appendChild(titleLink);
         }
@@ -1292,13 +1436,13 @@
         // Add product price
         const price = document.createElement('p');
         price.classList.add('shop-ai-product-price');
-        price.textContent = product.price;
+        price.textContent = String(product.price || '');
         info.appendChild(price);
 
         if (product.description) {
           const description = document.createElement('p');
           description.classList.add('shop-ai-product-description');
-          description.textContent = product.description;
+          description.textContent = String(product.description);
           info.appendChild(description);
         }
 

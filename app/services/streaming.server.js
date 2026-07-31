@@ -1,7 +1,4 @@
-/**
- * Streaming Service
- * Provides utilities for handling server-sent events (SSE) streams
- */
+import { createLogger } from "../lib/logger.server";
 
 /**
  * Creates a StreamManager to handle SSE streams with proper backpressure
@@ -9,7 +6,7 @@
  * @param {ReadableStreamDefaultController} controller - The stream controller
  * @returns {Object} StreamManager with utility methods for handling streaming
  */
-export function createStreamManager(encoder, controller) {
+export function createStreamManager(encoder, controller, logger = createLogger()) {
   /**
    * Send a data message to the client
    * @param {Object} data - Data to send
@@ -19,7 +16,7 @@ export function createStreamManager(encoder, controller) {
       const text = `data: ${JSON.stringify(data)}\n\n`;
       controller.enqueue(encoder.encode(text));
     } catch (error) {
-      console.error('Error sending stream message:', error);
+      logger.warn("SSE message could not be sent", { error });
     }
   };
 
@@ -41,7 +38,7 @@ export function createStreamManager(encoder, controller) {
     try {
       controller.close();
     } catch (error) {
-      console.error('Error closing stream:', error);
+      logger.debug("SSE stream was already closed", { error });
     }
   };
 
@@ -50,25 +47,17 @@ export function createStreamManager(encoder, controller) {
    * @param {Error} error - The error that occurred
    */
   const handleStreamingError = (error) => {
-    console.error('Error processing streaming request:', error);
+    logger.error("SSE stream failed", { error });
 
-    if (error.status === 401 || error.message.includes('auth') || error.message.includes('key')) {
+    if (error?.status === 429 || error?.status === 529) {
       sendError({
-        type: 'error',
-        error: 'Authentication failed with Claude API',
-        details: 'Please check your API key in environment variables'
-      });
-    } else if (error.status === 429 || error.status === 529 || error.message.includes('Overloaded')) {
-      sendError({
-        type: 'rate_limit_exceeded',
-        error: 'Rate limit exceeded',
-        details: 'Please try again later'
+        type: "rate_limit_exceeded",
+        error: "The shopping assistant is busy. Please try again shortly."
       });
     } else {
       sendError({
-        type: 'error',
-        error: 'Failed to get response from Claude',
-        details: error.message
+        type: "error",
+        error: "The shopping assistant is temporarily unavailable."
       });
     }
   };
@@ -86,12 +75,12 @@ export function createStreamManager(encoder, controller) {
  * @param {Function} streamHandler - Async function that handles the stream
  * @returns {ReadableStream} A readable stream for SSE
  */
-export function createSseStream(streamHandler) {
+export function createSseStream(streamHandler, { logger = createLogger() } = {}) {
   const encoder = new TextEncoder();
 
   return new ReadableStream({
     async start(controller) {
-      const streamManager = createStreamManager(encoder, controller);
+      const streamManager = createStreamManager(encoder, controller, logger);
 
       try {
         await streamHandler(streamManager);

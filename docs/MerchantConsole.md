@@ -1,5 +1,9 @@
 # Merchant Console
 
+> Product-surface history. Merchant configuration is now persisted per shop in
+> PostgreSQL through `app/merchant/merchant.server.js`. See
+> `docs/architecture-target.md` for the current admin and service architecture.
+
 ## Purpose
 
 Merchants configure business outcomes, not prompts. The Merchant Console is the architectural layer that translates a merchant's intent — "sound more formal," "never promise same-day shipping," "turn off the chat bubble on the checkout page" — into the system prompt, widget configuration, and rule set the Runtime actually consumes. It is the boundary that keeps prompt engineering an implementation detail rather than the product's primary interface, per [Vision.md](./Vision.md).

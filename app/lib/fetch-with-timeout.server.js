@@ -18,8 +18,8 @@ export async function fetchWithTimeout(url, options, timeoutMs) {
     return await fetch(url, { ...options, signal: controller.signal });
   } catch (error) {
     if (error.name === "AbortError") {
-      const method = options?.method || "GET";
-      const timeoutError = new Error(`Request to ${url} (${method}) timed out after ${timeoutMs}ms`);
+      const timeoutError = new Error("External request timed out");
+      timeoutError.code = "EXTERNAL_TIMEOUT";
       timeoutError.isTimeout = true;
       throw timeoutError;
     }
@@ -27,4 +27,45 @@ export async function fetchWithTimeout(url, options, timeoutMs) {
   } finally {
     clearTimeout(timeoutId);
   }
+}
+
+export async function readJsonResponseWithLimit(response, maxBytes = 1_000_000) {
+  if (!response.body) return null;
+  const declaredLength = Number(response.headers.get("content-length") || 0);
+  if (declaredLength > maxBytes) throw responseTooLargeError();
+
+  const reader = response.body.getReader();
+  const chunks = [];
+  let size = 0;
+  let complete = false;
+  try {
+    while (!complete) {
+      const { done, value } = await reader.read();
+      complete = done;
+      if (complete) break;
+      size += value.byteLength;
+      if (size > maxBytes) throw responseTooLargeError();
+      chunks.push(value);
+    }
+  } catch (error) {
+    await reader.cancel().catch(() => {});
+    throw error;
+  } finally {
+    reader.releaseLock();
+  }
+
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return JSON.parse(new TextDecoder().decode(bytes));
+}
+
+function responseTooLargeError() {
+  const error = new Error("External response is too large");
+  error.code = "EXTERNAL_RESPONSE_TOO_LARGE";
+  error.status = 502;
+  return error;
 }

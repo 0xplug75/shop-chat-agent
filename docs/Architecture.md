@@ -1,5 +1,9 @@
 # Architecture
 
+> Historical implementation note. The current hardened architecture is
+> documented in `docs/architecture-target.md`; the flow below describes the
+> earlier MVP before tenant, orchestration, and PostgreSQL hardening.
+
 ## Purpose
 
 This is the map from the product vision ([Vision.md](./Vision.md)) to the system that implements it. It names every layer, states what owns what, and separates the architecture itself from its current expression in code. Six months from now, this document should be enough to know where a given piece of behavior lives and why it's shaped the way it is.

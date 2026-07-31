@@ -1,8 +1,14 @@
+import { assertTrustedShopifyUrl } from "../security/shopify-domain.server";
+
 /**
  * Checkout Adapter
  * Handles checkout handoff boundaries for the MVP.
  */
-export function createCheckoutAdapter() {
+export function createCheckoutAdapter({ shopDomain, storefrontOrigin } = {}) {
+  const additionalHosts = storefrontOrigin
+    ? [new URL(storefrontOrigin).hostname]
+    : [];
+
   const createCheckoutFromCart = async ({ cartId, cartSnapshot }) => {
     return {
       cartId,
@@ -14,11 +20,10 @@ export function createCheckoutAdapter() {
     if (!response) return '';
 
     if (typeof response === 'string') {
-      if (response.includes('checkout')) return response;
       try {
         return getCheckoutUrlFromCartOrCheckout(JSON.parse(response));
       } catch (_error) {
-        return '';
+        return validateCheckoutUrl(response);
       }
     }
 
@@ -31,14 +36,20 @@ export function createCheckoutAdapter() {
       return '';
     }
 
-    if (response.checkoutUrl) return response.checkoutUrl;
-    if (response.checkout_url) return response.checkout_url;
-    if (response.webUrl) return response.webUrl;
-    if (response.checkout?.url) return response.checkout.url;
-    if (response.checkout?.webUrl) return response.checkout.webUrl;
-    if (response.cart?.checkoutUrl) return response.cart.checkoutUrl;
-    if (response.cart?.checkout_url) return response.cart.checkout_url;
-    if (response.url && String(response.url).includes('checkout')) return response.url;
+    const directCandidates = [
+      response.checkoutUrl,
+      response.checkout_url,
+      response.webUrl,
+      response.checkout?.url,
+      response.checkout?.webUrl,
+      response.cart?.checkoutUrl,
+      response.cart?.checkout_url,
+      response.url
+    ];
+    for (const candidate of directCandidates) {
+      const checkoutUrl = validateCheckoutUrl(candidate);
+      if (checkoutUrl) return checkoutUrl;
+    }
 
     const content = Array.isArray(response.content) ? response.content[0]?.text : null;
     if (content) return getCheckoutUrlFromCartOrCheckout(content);
@@ -53,8 +64,21 @@ export function createCheckoutAdapter() {
     return '';
   };
 
+  const validateCheckoutUrl = (value) => {
+    if (typeof value !== "string" || value.length > 4096) return "";
+    try {
+      const url = assertTrustedShopifyUrl(value, { shopDomain, additionalHosts });
+      const path = url.pathname.toLowerCase();
+      if (!path.includes("checkout") && !path.startsWith("/cart/c/")) return "";
+      return url.toString();
+    } catch (_error) {
+      return "";
+    }
+  };
+
   return {
     createCheckoutFromCart,
-    getCheckoutUrlFromCartOrCheckout
+    getCheckoutUrlFromCartOrCheckout,
+    validateCheckoutUrl
   };
 }
