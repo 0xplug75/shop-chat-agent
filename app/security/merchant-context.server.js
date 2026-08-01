@@ -6,9 +6,12 @@ export function createMerchantRequestContext({
   shopDomain,
   installationId,
   conversationId,
+  visitorId,
   customerId,
   requestId,
-  storefrontOrigin
+  storefrontOrigin,
+  tokenId,
+  networkSubject,
 }) {
   if (!shopId || !shopDomain) {
     throw new Error("Merchant context requires a shop");
@@ -19,27 +22,57 @@ export function createMerchantRequestContext({
     shopDomain,
     installationId: installationId || undefined,
     conversationId: conversationId || undefined,
+    visitorId: visitorId || undefined,
     customerId: customerId || undefined,
     requestId: requestId || crypto.randomUUID(),
-    storefrontOrigin: storefrontOrigin || undefined
+    storefrontOrigin: storefrontOrigin || undefined,
+    tokenId: tokenId || undefined,
+    networkSubject: networkSubject || undefined,
   });
 }
 
-export function requireWidgetRequestContext(request, { conversationId } = {}) {
-  const token = getBearerToken(request);
+export function requireWidgetRequestContext(
+  request,
+  {
+    conversationId,
+    token: suppliedToken,
+    expectedContext,
+    verifyOrigin = true,
+  } = {},
+) {
+  const token = suppliedToken || getBearerToken(request);
   const claims = verifyWidgetToken(token);
-  const requestOrigin = normalizeStorefrontOrigin(request.headers.get("Origin"));
+  const requestOrigin = verifyOrigin
+    ? normalizeStorefrontOrigin(request.headers.get("Origin"))
+    : null;
 
-  if (claims.storefrontOrigin && requestOrigin !== claims.storefrontOrigin) {
+  if (
+    verifyOrigin &&
+    claims.storefrontOrigin &&
+    requestOrigin !== claims.storefrontOrigin
+  ) {
     throw new WidgetTokenError("Widget token origin mismatch");
+  }
+  if (
+    expectedContext &&
+    (claims.shopId !== expectedContext.shopId ||
+      claims.shopDomain !== expectedContext.shopDomain ||
+      (expectedContext.storefrontOrigin &&
+        claims.storefrontOrigin !== expectedContext.storefrontOrigin))
+  ) {
+    throw new WidgetTokenError("Widget token tenant mismatch");
   }
 
   return createMerchantRequestContext({
     shopId: claims.shopId,
     shopDomain: claims.shopDomain,
+    installationId: expectedContext?.installationId,
     conversationId,
+    visitorId: claims.visitorId,
     requestId: getRequestId(request),
-    storefrontOrigin: claims.storefrontOrigin
+    storefrontOrigin: claims.storefrontOrigin,
+    tokenId: claims.tokenId,
+    networkSubject: expectedContext?.networkSubject,
   });
 }
 
@@ -54,7 +87,7 @@ export function withConversationContext(context, conversationId) {
   return createMerchantRequestContext({
     ...context,
     conversationId,
-    requestId: context.requestId
+    requestId: context.requestId,
   });
 }
 

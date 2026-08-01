@@ -1,7 +1,8 @@
 import { useLoaderData } from "react-router";
 import {
   formatLayout,
-  formatPosition
+  formatPolicy,
+  formatPosition,
 } from "../components/intentcart/dashboard-format";
 import { SetupStep, StatusItem } from "../components/intentcart/dashboard-ui";
 import { loadIntentCartDashboard } from "../merchant/dashboard.server";
@@ -22,13 +23,17 @@ export default function Index() {
             <p className={styles.eyebrow}>AI shopping assistant</p>
             <h1>Guide shoppers from a question to Shopify checkout.</h1>
             <p>
-              Configure Sage here, control its storefront appearance in the Theme
-              Editor, and keep products, prices, inventory, cart, and checkout grounded
-              in Shopify.
+              Configure Sage here, control its storefront appearance in the
+              Theme Editor, and keep products, prices, inventory, cart, and
+              checkout grounded in Shopify.
             </p>
           </div>
           <div className={styles.introActions}>
-            <s-button href={config.links.themeEditor} target="auto" variant="primary">
+            <s-button
+              href={config.links.themeEditor}
+              target="auto"
+              variant="primary"
+            >
               Open Theme Editor
             </s-button>
             <s-button href={config.links.storefront} target="auto">
@@ -87,7 +92,10 @@ export default function Index() {
           </div>
         </section>
 
-        <section className={styles.statusStrip} aria-label="Current configuration">
+        <section
+          className={styles.statusStrip}
+          aria-label="Current configuration"
+        >
           <StatusItem
             label="Assistant"
             value={config.assistant.name}
@@ -105,8 +113,34 @@ export default function Index() {
           />
           <StatusItem
             label="Checkout"
-            value="Shopify handoff"
+            value={formatPolicy(config.commerce.checkoutStrategy)}
             detail="After confirmation"
+          />
+        </section>
+
+        <section className={styles.statusStrip} aria-label="Runtime health">
+          <StatusItem
+            label="Shopify auth"
+            value={config.health.shopifyAuth}
+            detail="Offline merchant session"
+          />
+          <StatusItem
+            label="LLM routing"
+            value={config.health.llm}
+            detail={
+              config.health.llmProviders.join(" + ") ||
+              "No provider key detected"
+            }
+          />
+          <StatusItem
+            label="Active sessions"
+            value={String(config.metrics.activeSessions)}
+            detail={`${config.metrics.conversationsLast30Days} conversations / 30 days`}
+          />
+          <StatusItem
+            label="Checkout handoffs"
+            value={String(config.metrics.checkoutHandoffsLast30Days)}
+            detail="Last 30 days"
           />
         </section>
       </div>

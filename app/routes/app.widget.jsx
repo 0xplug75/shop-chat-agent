@@ -1,17 +1,33 @@
 import { useState } from "react";
-import { useLoaderData } from "react-router";
+import {
+  Form,
+  useActionData,
+  useLoaderData,
+  useNavigation,
+} from "react-router";
 import {
   formatPolicy,
-  formatPosition
+  formatPosition,
 } from "../components/intentcart/dashboard-format";
-import { Fact, ModeRow } from "../components/intentcart/dashboard-ui";
-import { loadIntentCartDashboard } from "../merchant/dashboard.server";
+import {
+  Fact,
+  SaveSettingsButton,
+  SettingsFeedback,
+} from "../components/intentcart/dashboard-ui";
+import {
+  loadIntentCartDashboard,
+  saveIntentCartDashboardSection,
+} from "../merchant/dashboard.server";
 import styles from "../styles/intentcart-dashboard.module.css";
 
 export const loader = async ({ request }) => loadIntentCartDashboard(request);
+export const action = async ({ request }) =>
+  saveIntentCartDashboardSection(request, "widget");
 
 export default function Widget() {
   const config = useLoaderData();
+  const result = useActionData();
+  const navigation = useNavigation();
   const [previewViewport, setPreviewViewport] = useState("desktop");
   const [previewOpen, setPreviewOpen] = useState(true);
 
@@ -25,47 +41,162 @@ export default function Widget() {
             <p className={styles.eyebrow}>Widget</p>
             <h1>Choose the smallest useful storefront surface.</h1>
             <p>
-              The Theme Editor owns placement and appearance. IntentCart owns the
-              shopping behavior behind it.
+              The Theme Editor owns placement and appearance. IntentCart owns
+              the shopping behavior behind it.
             </p>
           </div>
           <div className={styles.introActions}>
-            <s-button href={config.links.themeEditor} target="auto" variant="primary">
+            <s-button
+              href={config.links.themeEditor}
+              target="auto"
+              variant="primary"
+            >
               Customize in Theme Editor
             </s-button>
           </div>
         </header>
 
-        <section className={styles.contentSection} aria-label="Widget layouts">
+        <Form method="post" className={styles.contentSection}>
+          <input type="hidden" name="version" value={config.version} />
           <div className={styles.widgetWorkspace}>
             <div className={styles.widgetSettings}>
-              <ModeRow
-                title="Compact button"
-                body="Low-friction launcher for most storefronts."
-                active={config.storefront.layout === "bubble"}
-              />
-              <ModeRow
-                title="Floating assistant"
-                body="Docked panel for comparison while shoppers browse."
-                active={config.storefront.layout === "side-panel"}
-              />
-              <ModeRow
-                title="Inline shopping block"
-                body="Guided buying embedded in a landing or collection page."
-                active={config.storefront.layout === "inline"}
-              />
-              <ModeRow
-                title="Full-screen shopping"
-                body="Immersive assistant for campaigns and focused journeys."
-                active={config.storefront.layout === "fullscreen"}
-              />
+              {[
+                [
+                  "bubble",
+                  "Compact button",
+                  "Low-friction launcher for most storefronts.",
+                ],
+                [
+                  "side-panel",
+                  "Floating assistant",
+                  "Docked panel for comparison while shoppers browse.",
+                ],
+                [
+                  "inline",
+                  "Inline shopping block",
+                  "Guided buying embedded in a landing or collection page.",
+                ],
+                [
+                  "fullscreen",
+                  "Full-screen shopping",
+                  "Immersive assistant for focused journeys.",
+                ],
+              ].map(([value, title, body]) => (
+                <label
+                  className={styles.modeRow}
+                  key={value}
+                  aria-label={title}
+                >
+                  <input
+                    type="radio"
+                    name="layout"
+                    value={value}
+                    defaultChecked={config.storefront.layout === value}
+                  />
+                  <span>
+                    <strong>{title}</strong>
+                    <p>{body}</p>
+                  </span>
+                </label>
+              ))}
+
+              <div className={styles.inlineSettings}>
+                <label className={styles.field}>
+                  <span>Entry mode</span>
+                  <select
+                    name="entryBehavior"
+                    defaultValue={config.storefront.behavior.entryBehavior}
+                  >
+                    <option value="auto">Automatic</option>
+                    <option value="choice">Offer a choice</option>
+                    <option value="direct">Open assistant directly</option>
+                  </select>
+                </label>
+                <label className={styles.field}>
+                  <span>Maximum proactive prompts per session</span>
+                  <input
+                    type="number"
+                    name="maxProactivePerSession"
+                    min="0"
+                    max="10"
+                    defaultValue={
+                      config.storefront.behavior.maxProactivePerSession
+                    }
+                  />
+                </label>
+                <label className={styles.checkField}>
+                  <input
+                    type="checkbox"
+                    name="showQuickActions"
+                    defaultChecked={config.storefront.behavior.showQuickActions}
+                  />
+                  <span>Show quick prompts</span>
+                </label>
+                <label className={styles.checkField}>
+                  <input
+                    type="checkbox"
+                    name="openOnLoad"
+                    defaultChecked={config.storefront.behavior.openOnLoad}
+                  />
+                  <span>Open on page load</span>
+                </label>
+                <label className={styles.checkField}>
+                  <input
+                    type="checkbox"
+                    name="allowFullscreen"
+                    defaultChecked={config.storefront.behavior.allowFullscreen}
+                  />
+                  <span>Allow full-screen mode</span>
+                </label>
+                <label className={styles.checkField}>
+                  <input
+                    type="checkbox"
+                    name="contextualLauncher"
+                    defaultChecked={
+                      config.commerce.featureFlags.contextualLauncher
+                    }
+                  />
+                  <span>Contextual launcher feature flag</span>
+                </label>
+                <label className={styles.checkField}>
+                  <input
+                    type="checkbox"
+                    name="launcherExperimentEnabled"
+                    defaultChecked={config.experiments.launcherEntry.enabled}
+                  />
+                  <span>Launcher experiment</span>
+                </label>
+                <label className={styles.field}>
+                  <span>Treatment traffic (%)</span>
+                  <input
+                    type="number"
+                    name="treatmentPercentage"
+                    min="0"
+                    max="100"
+                    defaultValue={
+                      config.experiments.launcherEntry.treatmentPercentage
+                    }
+                  />
+                </label>
+                <label className={styles.checkField}>
+                  <input
+                    type="checkbox"
+                    name="experimentKillSwitch"
+                    defaultChecked={config.experiments.killSwitch}
+                  />
+                  <span>Experiment kill switch</span>
+                </label>
+              </div>
 
               <div className={styles.widgetFacts}>
-                <Fact label="Position" value={formatPosition(config.storefront.position)} />
+                <Fact
+                  label="Position"
+                  value={formatPosition(config.storefront.position)}
+                />
                 <Fact
                   label="Entry"
                   value={formatPolicy(
-                    config.storefront.behavior.entryBehavior || "auto"
+                    config.storefront.behavior.entryBehavior || "auto",
                   )}
                 />
                 <Fact
@@ -107,7 +238,7 @@ export default function Widget() {
                   "--preview-primary": config.storefront.colors.primary,
                   "--preview-bg": config.storefront.colors.background,
                   "--preview-text": config.storefront.colors.text,
-                  "--preview-accent": config.storefront.colors.accent
+                  "--preview-accent": config.storefront.colors.accent,
                 }}
               >
                 <div className={styles.mockStore}>
@@ -151,9 +282,11 @@ export default function Widget() {
                         <p>{config.assistant.welcomeMessage}</p>
                       </div>
                       <div className={styles.previewPrompts}>
-                        {config.assistant.quickActions.slice(0, 2).map((action) => (
-                          <span key={action}>{action}</span>
-                        ))}
+                        {config.assistant.quickActions
+                          .slice(0, 2)
+                          .map((action) => (
+                            <span key={action}>{action}</span>
+                          ))}
                       </div>
                     </div>
                     <div className={styles.previewComposer}>
@@ -174,14 +307,20 @@ export default function Widget() {
               </div>
             </div>
           </div>
-        </section>
+          <div className={styles.formActions}>
+            <SettingsFeedback result={result} />
+            <SaveSettingsButton
+              submitting={navigation.state === "submitting"}
+            />
+          </div>
+        </Form>
 
         <footer className={styles.footerHelp}>
           <div>
             <strong>Storefront controls belong in the Theme Editor.</strong>
             <p>
-              Layout, position, color, launcher, and entry behavior stay close to the
-              live theme preview.
+              Layout, position, color, launcher, and entry behavior stay close
+              to the live theme preview.
             </p>
           </div>
           <s-button href={config.links.themeEditor} target="auto">

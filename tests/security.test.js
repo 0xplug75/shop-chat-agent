@@ -2,19 +2,23 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   issueWidgetToken,
   verifyWidgetToken,
-  WidgetTokenError
+  WidgetTokenError,
 } from "../app/security/widget-token.server";
 import {
   assertTrustedShopifyUrl,
   normalizeShopDomain,
-  normalizeStorefrontOrigin
+  normalizeStorefrontOrigin,
 } from "../app/security/shopify-domain.server";
 import { requireWidgetRequestContext } from "../app/security/merchant-context.server";
-import { decryptSecret, encryptSecret } from "../app/security/encryption.server";
+import {
+  decryptSecret,
+  encryptSecret,
+} from "../app/security/encryption.server";
 import { isAllowedOrigin } from "../app/lib/cors.server";
 
 const SHOP = "alpha-store.myshopify.com";
 const ORIGIN = `https://${SHOP}`;
+const VISITOR_ID = "7e84f2bc-41b8-479e-bfab-75cd7a4ba7df";
 
 describe("widget security boundaries", () => {
   beforeEach(() => {
@@ -31,27 +35,31 @@ describe("widget security boundaries", () => {
       shopId: "shop-alpha",
       shopDomain: SHOP,
       storefrontOrigin: ORIGIN,
-      ttlSeconds: 120
+      visitorId: VISITOR_ID,
+      ttlSeconds: 120,
     });
 
     expect(verifyWidgetToken(issued.token)).toMatchObject({
       shopId: "shop-alpha",
       shopDomain: SHOP,
-      storefrontOrigin: ORIGIN
+      storefrontOrigin: ORIGIN,
+      visitorId: VISITOR_ID,
+      version: 2,
     });
 
     const request = new Request("https://app.example.com/chat", {
       headers: {
         Authorization: `Bearer ${issued.token}`,
         Origin: ORIGIN,
-        "X-Request-Id": "request-123"
-      }
+        "X-Request-Id": "request-123",
+      },
     });
     expect(requireWidgetRequestContext(request)).toMatchObject({
       shopId: "shop-alpha",
       shopDomain: SHOP,
       storefrontOrigin: ORIGIN,
-      requestId: "request-123"
+      visitorId: VISITOR_ID,
+      requestId: "request-123",
     });
   });
 
@@ -60,40 +68,90 @@ describe("widget security boundaries", () => {
       shopId: "shop-alpha",
       shopDomain: SHOP,
       storefrontOrigin: ORIGIN,
-      ttlSeconds: 60
+      visitorId: VISITOR_ID,
+      ttlSeconds: 60,
     });
     const parts = token.split(".");
     const tamperedPayload = `${parts[1].slice(0, -1)}${parts[1].endsWith("a") ? "b" : "a"}`;
-    expect(() => verifyWidgetToken(`${parts[0]}.${tamperedPayload}.${parts[2]}`))
-      .toThrow(WidgetTokenError);
+    expect(() =>
+      verifyWidgetToken(`${parts[0]}.${tamperedPayload}.${parts[2]}`),
+    ).toThrow(WidgetTokenError);
 
     const wrongOriginRequest = new Request("https://app.example.com/chat", {
       headers: {
         Authorization: `Bearer ${token}`,
-        Origin: "https://other-store.myshopify.com"
-      }
+        Origin: "https://other-store.myshopify.com",
+      },
     });
-    expect(() => requireWidgetRequestContext(wrongOriginRequest)).toThrow(WidgetTokenError);
+    expect(() => requireWidgetRequestContext(wrongOriginRequest)).toThrow(
+      WidgetTokenError,
+    );
 
     vi.advanceTimersByTime(61_000);
     expect(() => verifyWidgetToken(token)).toThrow("Expired widget token");
   });
 
+  it("binds an App Proxy token to the same tenant and visitor without trusting headers", () => {
+    const { token } = issueWidgetToken({
+      shopId: "shop-alpha",
+      shopDomain: SHOP,
+      storefrontOrigin: ORIGIN,
+      visitorId: VISITOR_ID,
+    });
+    const request = new Request("https://app.example.com/widget/chat", {
+      method: "POST",
+    });
+    const expectedContext = {
+      shopId: "shop-alpha",
+      shopDomain: SHOP,
+      installationId: "offline_alpha-store",
+      storefrontOrigin: ORIGIN,
+      networkSubject: "app-proxy:192.0.2.10",
+    };
+
+    expect(
+      requireWidgetRequestContext(request, {
+        token,
+        expectedContext,
+        verifyOrigin: false,
+      }),
+    ).toMatchObject({
+      shopId: "shop-alpha",
+      visitorId: VISITOR_ID,
+      installationId: "offline_alpha-store",
+      networkSubject: "app-proxy:192.0.2.10",
+    });
+    expect(() =>
+      requireWidgetRequestContext(request, {
+        token,
+        expectedContext: { ...expectedContext, shopId: "shop-beta" },
+        verifyOrigin: false,
+      }),
+    ).toThrow("Widget token tenant mismatch");
+  });
+
   it("accepts only canonical shop domains and trusted external URLs", () => {
-    expect(normalizeShopDomain("HTTPS://ALPHA-STORE.MYSHOPIFY.COM"))
-      .toBe(SHOP);
+    expect(normalizeShopDomain("HTTPS://ALPHA-STORE.MYSHOPIFY.COM")).toBe(SHOP);
     expect(() => normalizeShopDomain("alpha-store.example.com")).toThrow();
     expect(normalizeStorefrontOrigin(ORIGIN)).toBe(ORIGIN);
     expect(() => normalizeStorefrontOrigin(`${ORIGIN}/products`)).toThrow();
 
-    expect(assertTrustedShopifyUrl(`${ORIGIN}/checkouts/cn/test`, { shopDomain: SHOP }).hostname)
-      .toBe(SHOP);
-    expect(() => assertTrustedShopifyUrl(
-      "https://other-store.myshopify.com/checkouts/cn/test",
-      { shopDomain: SHOP }
-    )).toThrow("not trusted");
-    expect(() => assertTrustedShopifyUrl("https://attacker.example/checkout", { shopDomain: SHOP }))
-      .toThrow("not trusted");
+    expect(
+      assertTrustedShopifyUrl(`${ORIGIN}/checkouts/cn/test`, {
+        shopDomain: SHOP,
+      }).hostname,
+    ).toBe(SHOP);
+    expect(() =>
+      assertTrustedShopifyUrl(
+        "https://other-store.myshopify.com/checkouts/cn/test",
+        { shopDomain: SHOP },
+      ),
+    ).toThrow("not trusted");
+    expect(() =>
+      assertTrustedShopifyUrl("https://attacker.example/checkout", {
+        shopDomain: SHOP,
+      }),
+    ).toThrow("not trusted");
   });
 
   it("uses CORS only as preflight filtering while the signed token binds the tenant", () => {

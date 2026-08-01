@@ -1,0 +1,82 @@
+name: IntentCart CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: intentcart-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: intentcart
+          POSTGRES_PASSWORD: intentcart_ci_only
+          POSTGRES_DB: intentcart_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U intentcart -d intentcart_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      NODE_ENV: test
+      APP_ENV: test
+      APP_URL: http://localhost:3000
+      SHOPIFY_APP_URL: http://localhost:3000
+      SHOPIFY_API_KEY: local-ci-key
+      SHOPIFY_API_SECRET: local-ci-shopify-secret-123456789012345
+      SCOPES: read_products,write_products
+      DATABASE_URL: postgresql://intentcart:intentcart_ci_only@127.0.0.1:5432/intentcart_test?schema=public
+      DIRECT_URL: postgresql://intentcart:intentcart_ci_only@127.0.0.1:5432/intentcart_test?schema=public
+      TEST_DATABASE_URL: postgresql://intentcart:intentcart_ci_only@127.0.0.1:5432/intentcart_test?schema=public
+      TOKEN_ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef
+      WIDGET_SIGNING_SECRET: widget-signing-secret-for-ci-123456789012345
+      AI_PROVIDER: fake
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate and validate Prisma client
+        run: npm run db:generate && npm run db:validate
+
+      - name: Apply migrations to disposable PostgreSQL
+        run: npm run migrate:deploy
+
+      - name: Run full test suite
+        run: npm test
+
+      - name: Run deterministic commerce E2E explicitly
+        run: npm run test:e2e:deterministic
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build production bundles
+        env:
+          NODE_ENV: production
+        run: npm run build

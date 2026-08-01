@@ -4,20 +4,25 @@ import {
   AppDistribution,
   shopifyApp,
 } from "@shopify/shopify-app-react-router/server";
-import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
 import prisma from "./db.server";
+import { resolveRuntimeUrls } from "./config/runtime-urls";
+import { EncryptedPrismaSessionStorage } from "./services/shopify-session-storage.server";
 
 export const appApiKey = process.env.SHOPIFY_API_KEY || "";
+const runtimeUrls = resolveRuntimeUrls();
 
 const shopify = shopifyApp({
   apiKey: appApiKey,
   apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
   apiVersion: ApiVersion.July26,
   scopes: process.env.SCOPES?.split(","),
-  appUrl: process.env.SHOPIFY_APP_URL || "",
+  appUrl: runtimeUrls.appUrl,
   authPathPrefix: "/auth",
-  sessionStorage: new PrismaSessionStorage(prisma),
+  sessionStorage: new EncryptedPrismaSessionStorage(prisma),
   distribution: AppDistribution.AppStore,
+  future: {
+    expiringOfflineAccessTokens: true,
+  },
   ...(process.env.SHOP_CUSTOM_DOMAIN
     ? { customShopDomains: [process.env.SHOP_CUSTOM_DOMAIN] }
     : {}),

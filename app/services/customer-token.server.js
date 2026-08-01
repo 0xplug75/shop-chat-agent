@@ -1,18 +1,15 @@
 import prisma from "../db.server";
 import { decryptSecret, encryptSecret } from "../security/encryption.server";
 
-export async function storeCustomerToken(context, {
-  conversationId,
-  customerReference,
-  accessToken,
-  refreshToken,
-  expiresAt
-}) {
+export async function storeCustomerToken(
+  context,
+  { conversationId, customerReference, accessToken, refreshToken, expiresAt },
+) {
   if (!context?.shopId) throw new Error("Merchant context is required");
   if (conversationId) {
     const conversation = await prisma.conversation.findFirst({
       where: { id: conversationId, shopId: context.shopId },
-      select: { id: true }
+      select: { id: true },
     });
     if (!conversation) throw new Error("Conversation not found");
   }
@@ -21,8 +18,8 @@ export async function storeCustomerToken(context, {
     where: {
       shopId_customerReference: {
         shopId: context.shopId,
-        customerReference
-      }
+        customerReference,
+      },
     },
     create: {
       shopId: context.shopId,
@@ -30,26 +27,29 @@ export async function storeCustomerToken(context, {
       customerReference,
       encryptedAccessToken: encryptSecret(accessToken),
       encryptedRefreshToken: refreshToken ? encryptSecret(refreshToken) : null,
-      expiresAt
+      expiresAt,
     },
     update: {
       conversationId: conversationId || null,
       encryptedAccessToken: encryptSecret(accessToken),
       encryptedRefreshToken: refreshToken ? encryptSecret(refreshToken) : null,
-      expiresAt
-    }
+      expiresAt,
+    },
   });
 }
 
-export async function getCustomerToken(context, { conversationId, customerReference }) {
+export async function getCustomerToken(
+  context,
+  { conversationId, customerReference },
+) {
   if (!context?.shopId) throw new Error("Merchant context is required");
   const record = await prisma.customerToken.findFirst({
     where: {
       shopId: context.shopId,
       expiresAt: { gt: new Date() },
       ...(conversationId ? { conversationId } : {}),
-      ...(customerReference ? { customerReference } : {})
-    }
+      ...(customerReference ? { customerReference } : {}),
+    },
   });
 
   if (!record) return null;
@@ -58,28 +58,42 @@ export async function getCustomerToken(context, { conversationId, customerRefere
     accessToken: decryptSecret(record.encryptedAccessToken),
     refreshToken: record.encryptedRefreshToken
       ? decryptSecret(record.encryptedRefreshToken)
-      : null
+      : null,
   };
 }
 
-export async function revokeCustomerTokens(context, { customerReference } = {}) {
+export async function revokeCustomerTokens(
+  context,
+  { customerReference } = {},
+) {
   if (!context?.shopId) throw new Error("Merchant context is required");
   return prisma.customerToken.deleteMany({
     where: {
       shopId: context.shopId,
-      ...(customerReference ? { customerReference } : {})
-    }
+      ...(customerReference ? { customerReference } : {}),
+    },
   });
 }
 
 export async function getCustomerTokenStatus(context, conversationId) {
   if (!context?.shopId) throw new Error("Merchant context is required");
+  if (context.visitorId) {
+    const conversation = await prisma.conversation.findFirst({
+      where: {
+        id: conversationId,
+        shopId: context.shopId,
+        visitorId: context.visitorId,
+      },
+      select: { id: true },
+    });
+    if (!conversation) return null;
+  }
   return prisma.customerToken.findFirst({
     where: {
       shopId: context.shopId,
       conversationId,
-      expiresAt: { gt: new Date() }
+      expiresAt: { gt: new Date() },
     },
-    select: { expiresAt: true }
+    select: { expiresAt: true },
   });
 }

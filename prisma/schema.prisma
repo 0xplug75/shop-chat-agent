@@ -56,23 +56,31 @@ enum JourneyStage {
 }
 
 model Session {
-  id            String    @id
-  shop          String
-  state         String
-  isOnline      Boolean   @default(false)
-  scope         String?
-  expires       DateTime?
-  accessToken   String
-  userId        BigInt?
-  firstName     String?
-  lastName      String?
-  email         String?
-  accountOwner  Boolean   @default(false)
-  locale        String?
-  collaborator  Boolean?  @default(false)
-  emailVerified Boolean?  @default(false)
+  id                  String    @id
+  shop                String
+  state               String
+  isOnline            Boolean   @default(false)
+  scope               String?
+  expires             DateTime?
+  accessToken         String    @db.Text
+  refreshToken        String?   @db.Text
+  refreshTokenExpires DateTime?
+  tokenVersion        Int       @default(0)
+  refreshLeaseId      String?
+  refreshLeaseExpires DateTime?
+  lastRefreshAt       DateTime?
+  revokedAt           DateTime?
+  userId              BigInt?
+  firstName           String?
+  lastName            String?
+  email               String?
+  accountOwner        Boolean   @default(false)
+  locale              String?
+  collaborator        Boolean?  @default(false)
+  emailVerified       Boolean?  @default(false)
 
   @@index([shop])
+  @@index([refreshLeaseExpires])
 }
 
 model Shop {
@@ -86,18 +94,21 @@ model Shop {
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
 
-  merchantConfig      MerchantConfig?
-  knowledgeSources    KnowledgeSource[]
-  knowledgeDocuments  KnowledgeDocument[]
-  knowledgeChunks     KnowledgeChunk[]
-  conversations       Conversation[]
-  messages            Message[]
-  commerceSessions    CommerceSession[]
-  commerceEvents      CommerceEvent[]
-  customerTokens      CustomerToken[]
-  oauthStates         OAuthState[]
-  customerAccountUrls CustomerAccountUrls[]
-  webhookReceipts     WebhookReceipt[]
+  merchantConfig        MerchantConfig?
+  knowledgeSources      KnowledgeSource[]
+  knowledgeDocuments    KnowledgeDocument[]
+  knowledgeChunks       KnowledgeChunk[]
+  conversations         Conversation[]
+  messages              Message[]
+  commerceSessions      CommerceSession[]
+  commerceEvents        CommerceEvent[]
+  commerceMutations     CommerceMutation[]
+  experimentAssignments ExperimentAssignment[]
+  rateLimitBuckets      RateLimitBucket[]
+  customerTokens        CustomerToken[]
+  oauthStates           OAuthState[]
+  customerAccountUrls   CustomerAccountUrls[]
+  webhookReceipts       WebhookReceipt[]
 
   @@index([status])
 }
@@ -112,6 +123,7 @@ model MerchantConfig {
   quickPrompts        Json
   commerceRules       Json
   recommendationRules Json
+  settings            Json?
   version             Int      @default(1)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
@@ -213,6 +225,8 @@ model Message {
   toolCalls         Json?
   toolResults       Json?
   model             String?
+  provider          String?
+  costMicros        BigInt?
   inputTokens       Int?
   outputTokens      Int?
   latencyMs         Int?
@@ -226,35 +240,69 @@ model Message {
 }
 
 model CommerceSession {
-  id                  String       @id @default(cuid())
-  shopId              String
-  conversationId      String       @unique
-  visitorId           String?
-  customerId          String?
-  journeyStage        JourneyStage @default(DISCOVER)
-  structuredIntent    Json?
-  constraints         Json
-  recommendedProducts Json
-  comparedProducts    Json
-  selectedProductId   String?
-  selectedVariantId   String?
-  quantity            Int          @default(1)
-  cartId              String?
-  checkoutUrl         String?
-  buyerContext        Json
-  pendingMessages     Json
-  version             Int          @default(1)
-  expiresAt           DateTime
-  createdAt           DateTime     @default(now())
-  updatedAt           DateTime     @updatedAt
+  id                     String       @id @default(cuid())
+  shopId                 String
+  conversationId         String       @unique
+  visitorId              String?
+  customerId             String?
+  journeyStage           JourneyStage @default(DISCOVER)
+  structuredIntent       Json?
+  constraints            Json
+  recommendedProducts    Json
+  comparedProducts       Json
+  selectedProductId      String?
+  selectedVariantId      String?
+  quantity               Int          @default(1)
+  cartId                 String?
+  checkoutUrl            String?
+  buyerContext           Json
+  pendingMessages        Json
+  recoveryState          Json?
+  experimentAssignmentId String?
+  lastActivityAt         DateTime     @default(now())
+  version                Int          @default(1)
+  expiresAt              DateTime
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
 
-  shop         Shop            @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  conversation Conversation    @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  events       CommerceEvent[]
+  shop                 Shop                  @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  conversation         Conversation          @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  events               CommerceEvent[]
+  mutations            CommerceMutation[]
+  experimentAssignment ExperimentAssignment? @relation(fields: [experimentAssignmentId], references: [id], onDelete: SetNull)
 
   @@index([shopId, journeyStage, updatedAt])
   @@index([shopId, expiresAt])
   @@index([shopId, cartId])
+  @@index([shopId, visitorId, lastActivityAt])
+  @@index([experimentAssignmentId])
+}
+
+model CommerceMutation {
+  id                String    @id @default(cuid())
+  shopId            String
+  commerceSessionId String
+  confirmationId    String
+  idempotencyKey    String
+  requestHash       String
+  operation         String
+  state             String
+  request           Json
+  result            Json?
+  errorCode         String?
+  startedAt         DateTime?
+  resolvedAt        DateTime?
+  version           Int       @default(1)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  shop            Shop            @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  commerceSession CommerceSession @relation(fields: [commerceSessionId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, idempotencyKey])
+  @@unique([shopId, confirmationId, operation])
+  @@index([shopId, state, updatedAt])
+  @@index([commerceSessionId, createdAt])
 }
 
 model CommerceEvent {
@@ -264,6 +312,9 @@ model CommerceEvent {
   commerceSessionId String?
   eventType         String
   payload           Json
+  schemaVersion     String   @default("1.0")
+  experimentKey     String?
+  experimentVariant String?
   requestId         String
   occurredAt        DateTime @default(now())
 
@@ -274,6 +325,39 @@ model CommerceEvent {
   @@index([shopId, eventType, occurredAt])
   @@index([conversationId, occurredAt])
   @@index([commerceSessionId, occurredAt])
+}
+
+model ExperimentAssignment {
+  id            String    @id @default(cuid())
+  shopId        String
+  visitorId     String
+  experimentKey String
+  variant       String
+  exposedAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  shop             Shop              @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  commerceSessions CommerceSession[]
+
+  @@unique([shopId, visitorId, experimentKey])
+  @@index([shopId, experimentKey, variant])
+}
+
+model RateLimitBucket {
+  id          String   @id
+  shopId      String
+  keyHash     String
+  windowStart DateTime
+  count       Int      @default(1)
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  shop Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, keyHash, windowStart])
+  @@index([expiresAt])
 }
 
 model CustomerToken {

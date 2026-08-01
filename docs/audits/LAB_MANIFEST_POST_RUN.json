@@ -1,0 +1,495 @@
+{
+  "audit_version": "1.1",
+  "snapshot_status": "current_candidate_validation_2026-08-01",
+  "superseded_by": [
+    "docs/execution/PRODUCTION_RUN.md",
+    "PROMOTION_MANIFEST.json"
+  ],
+  "audit_date": "2026-08-01",
+  "lab_name": "Intent card shopify",
+  "codex_task_name": "Intent Card_SHOPIFY",
+  "repository_name": "shop-chat-agent",
+  "repository_root": ".",
+  "repository_type": "Autonomous Git repository nested in a separate parent worktree",
+  "git": {
+    "branch": "codex/intentcart-admin-freeze",
+    "head_at_run_start": "43ae66e4c5b9de4f3bbc74a043701d784febdb8d",
+    "remote": "https://github.com/0xplug75/shop-chat-agent.git",
+    "worktree_status": "Dirty by design: stabilization changes plus preserved pre-existing user documentation changes; no commit or push was created"
+  },
+  "purpose": "Provide the Shopify-native multitenant runtime for Sage guided selling while Shopify remains authoritative for catalog, cart, and checkout.",
+  "one_sentence_identity": "IntentCart is the locally stabilized Shopify runtime boundary for Sage, with encrypted offline sessions, provider-neutral LLM execution, strict commerce contracts, and an idempotent mutation journal.",
+  "maturity": "Working with limitations - locally stabilized release candidate, not deployed or dev-store verified",
+  "locations": {
+    "local": {
+      "status": "Verified locally",
+      "path": ".",
+      "tests": "113 passed with PostgreSQL integration enabled",
+      "deterministic_e2e": "Passed",
+      "migrations": "11 applied on disposable PostgreSQL 16",
+      "rollbacks": "3 candidate rollback files executed successfully in reverse order",
+      "runtime_smoke": "health, database readiness, and UCP agent profile returned HTTP 200"
+    },
+    "preview": {
+      "status": "Unknown",
+      "url": null,
+      "reason": "No distinct preview service or database was verified"
+    },
+    "production": {
+      "status": "Verified live infrastructure; candidate not deployed",
+      "platform": "Railway",
+      "service_url": "https://shop-chat-agent-production-3220.up.railway.app",
+      "previously_observed_commit": "4f92c75257074a3e28ec3c0301043c93bf614933",
+      "currently_deployed_commit": null,
+      "post_run_revision_deployed": false,
+      "verified_during_post_run": true,
+      "reason": "health and database readiness returned HTTP 200, while the candidate UCP profile returned HTTP 404; the exact deployed commit remains unknown"
+    }
+  },
+  "features": [
+    {
+      "name": "Encrypted expiring offline Shopify sessions",
+      "status": "Working with limitations",
+      "tested": true,
+      "deployed": false,
+      "evidence": [
+        "app/services/shopify-session-storage.server.js",
+        "tests/shopify-session-storage.test.js",
+        "prisma/migrations/20260801090000_secure_expiring_offline_sessions/migration.sql"
+      ],
+      "limits": [
+        "Migration validated locally but not applied remotely",
+        "No dev-store refresh proof"
+      ]
+    },
+    {
+      "name": "Canonical runtime URL resolution",
+      "status": "Working",
+      "tested": true,
+      "deployed": false,
+      "evidence": ["app/config/runtime-urls.js", "tests/runtime-urls.test.js"],
+      "limits": ["Remote Shopify configuration unchanged"]
+    },
+    {
+      "name": "Provider-neutral LLM registry",
+      "status": "Working with limitations",
+      "tested": true,
+      "deployed": false,
+      "evidence": [
+        "app/services/llm/provider-contract.server.js",
+        "app/services/llm/provider-registry.server.js",
+        "tests/llm-providers.test.js"
+      ],
+      "limits": ["No paid or live provider call was performed"]
+    },
+    {
+      "name": "Commerce mutation idempotency barrier",
+      "status": "Working with limitations",
+      "tested": true,
+      "deployed": false,
+      "evidence": [
+        "app/services/commerce-mutation.server.js",
+        "tests/commerce-mutation.test.js",
+        "prisma/migrations/20260801100000_commerce_mutation_journal/migration.sql"
+      ],
+      "limits": [
+        "PostgreSQL integration passed locally; preview and live Shopify mutation remain unverified"
+      ]
+    },
+    {
+      "name": "Deterministic commercial E2E",
+      "status": "Working",
+      "tested": true,
+      "deployed": false,
+      "evidence": ["tests/commerce.e2e.test.js"],
+      "limits": ["Shopify and LLM boundaries use deterministic fixtures"]
+    },
+    {
+      "name": "Visitor-bound widget and App Proxy trust boundary",
+      "status": "Working with limitations",
+      "tested": true,
+      "deployed": false,
+      "evidence": [
+        "app/security/widget-token.server.js",
+        "app/security/app-proxy-context.server.js",
+        "app/security/merchant-context.server.js",
+        "tests/security.test.js"
+      ],
+      "limits": ["Signed Shopify App Proxy flow is not live-verified"]
+    },
+    {
+      "name": "UCP discovery and provider boundary",
+      "status": "Working with limitations",
+      "tested": true,
+      "deployed": false,
+      "evidence": [
+        "app/routes/ucp.agent-profile.jsx",
+        "app/services/commerce/ucp-client.server.js",
+        "app/services/commerce/ucp-provider.server.js",
+        "tests/ucp-commerce.test.js"
+      ],
+      "limits": [
+        "No live UCP business was invoked; deployed profile returns 404"
+      ]
+    },
+    {
+      "name": "Persistent five-page merchant configuration",
+      "status": "Working with limitations",
+      "tested": true,
+      "deployed": false,
+      "evidence": [
+        "app/merchant/dashboard.server.js",
+        "tests/postgres.integration.test.js",
+        "tests/admin-navigation.test.js"
+      ],
+      "limits": ["Candidate is not deployed in a Shopify Admin iframe"]
+    }
+  ],
+  "documents": [
+    {
+      "path": "docs/execution/PRODUCTION_RUN.md",
+      "status": "canonical current execution report"
+    },
+    {
+      "path": "docs/execution/FEATURE_MATRIX.md",
+      "status": "canonical feature-state matrix"
+    },
+    {
+      "path": "docs/execution/ENVIRONMENT_VARIABLES.md",
+      "status": "secret-free environment inventory"
+    },
+    {
+      "path": "docs/runs/PRE_RUN_BASELINE.md",
+      "status": "canonical baseline"
+    },
+    {
+      "path": "docs/runs/NEXT_RUN_REPORT.md",
+      "status": "canonical post-run report"
+    },
+    {
+      "path": "docs/runs/RECOVERY_HANDOFF.md",
+      "status": "canonical consolidation handoff"
+    },
+    {
+      "path": "docs/runbooks/SHOPIFY_E2E.md",
+      "status": "executable test runbook"
+    },
+    {
+      "path": "docs/runbooks/DEPLOYMENT_READINESS.md",
+      "status": "deployment gate checklist"
+    },
+    {
+      "path": "docs/runbooks/PRODUCTION_DEPLOYMENT.md",
+      "status": "deployment and rollback runbook"
+    },
+    {
+      "path": "docs/runbooks/SHOPIFY_APP_REVIEW.md",
+      "status": "Shopify App Review plan"
+    },
+    {
+      "path": "docs/runbooks/SCREENCAST_CHECKLIST.md",
+      "status": "review screencast checklist"
+    },
+    {
+      "path": "docs/audits/LAB_AUDIT_POST_RUN.md",
+      "status": "post-run audit delta"
+    }
+  ],
+  "resources": [
+    {
+      "type": "service",
+      "path": "app/services/shopify-session-storage.server.js",
+      "role": "Encrypted Shopify session persistence and refresh rotation"
+    },
+    {
+      "type": "service",
+      "path": "app/services/commerce-mutation.server.js",
+      "role": "Commerce side-effect lifecycle and idempotency"
+    },
+    {
+      "type": "configuration",
+      "path": "app/config/runtime-urls.js",
+      "role": "Canonical environment and origin resolver"
+    },
+    {
+      "type": "provider_registry",
+      "path": "app/services/llm/",
+      "role": "OpenAI, Kimi, Anthropic, and fake provider adapters"
+    },
+    {
+      "type": "migration",
+      "path": "prisma/migrations/20260801090000_secure_expiring_offline_sessions/",
+      "role": "Offline token storage and rotation metadata"
+    },
+    {
+      "type": "migration",
+      "path": "prisma/migrations/20260801100000_commerce_mutation_journal/",
+      "role": "Per-shop mutation journal"
+    },
+    {
+      "type": "migration",
+      "path": "prisma/migrations/20260801120000_agentic_shopping_core/",
+      "role": "Merchant settings, experiments, recovery, event attribution, and shared rate limits"
+    },
+    {
+      "type": "ci",
+      "path": ".github/workflows/ci.yml",
+      "role": "PostgreSQL 16 migration, full test, lint, typecheck, and build gate; not yet executed remotely"
+    }
+  ],
+  "contracts": [
+    {
+      "name": "IntentState",
+      "version": "1.0",
+      "validation": "Strict Zod",
+      "path": "app/contracts/commerce.schemas.server.js",
+      "destination": "CommerceSession intent component"
+    },
+    {
+      "name": "CatalogSearchRequest",
+      "version": "1.0",
+      "validation": "Strict Zod",
+      "path": "app/contracts/commerce.schemas.server.js",
+      "destination": "CatalogProvider port"
+    },
+    {
+      "name": "PurchaseCandidate",
+      "version": "1.0",
+      "validation": "Strict Zod",
+      "path": "app/contracts/commerce.schemas.server.js",
+      "destination": "All commerce mutations"
+    },
+    {
+      "name": "CartSnapshot",
+      "version": "1.0",
+      "validation": "Strict Zod",
+      "path": "app/contracts/commerce.schemas.server.js",
+      "destination": "Provider-neutral cart projection"
+    },
+    {
+      "name": "LLMProviderAdapter",
+      "version": "runtime-v1",
+      "validation": "Adapter assertion and shared contract suite",
+      "path": "app/services/llm/provider-contract.server.js",
+      "destination": "Sage Core provider port"
+    }
+  ],
+  "integrations": [
+    {
+      "name": "Shopify",
+      "role": "Admin authentication, product truth, App Proxy, cart, and checkout",
+      "status": "Implemented but blocked",
+      "configuration": "Stable origin and Shopify credentials",
+      "evidence": "Local code and tests",
+      "risk": "Remote app configuration and dev-store E2E not verified"
+    },
+    {
+      "name": "PostgreSQL/Supabase",
+      "role": "Sessions, commerce sessions, mutation journal, and merchant data",
+      "status": "Implemented but blocked",
+      "configuration": "DATABASE_URL and DIRECT_URL",
+      "evidence": "All 11 migrations, 8 integration tests, and 3 candidate rollbacks passed on disposable PostgreSQL 16",
+      "risk": "New migrations are not applied to preview or production"
+    },
+    {
+      "name": "OpenAI",
+      "role": "Primary optional LLM provider",
+      "status": "Prepared only",
+      "configuration": "OPENAI_API_KEY, OPENAI_MODEL, optional OPENAI_BASE_URL",
+      "evidence": "Contract tests",
+      "risk": "No live smoke test"
+    },
+    {
+      "name": "Kimi/Moonshot",
+      "role": "OpenAI-compatible optional LLM provider",
+      "status": "Prepared only",
+      "configuration": "KIMI_API_KEY, KIMI_MODEL, optional KIMI_BASE_URL",
+      "evidence": "Contract tests",
+      "risk": "No live smoke test"
+    },
+    {
+      "name": "Anthropic",
+      "role": "Optional LLM provider and local configured provider",
+      "status": "Implemented but blocked",
+      "configuration": "ANTHROPIC_API_KEY and ANTHROPIC_MODEL",
+      "evidence": "Contract tests and offline config check",
+      "risk": "No live smoke test after prior deployed HTTP 400"
+    },
+    {
+      "name": "Railway",
+      "role": "Application hosting",
+      "status": "Verified live infrastructure; candidate not deployed",
+      "configuration": "External platform",
+      "evidence": "GET /health and /health/db returned 200; /ucp/agent-profile returned 404 on 2026-08-01",
+      "risk": "Exact deployed commit is unknown and post-run code is not deployed"
+    }
+  ],
+  "data_sources": [
+    {
+      "name": "Shopify commerce data",
+      "owner": "Shopify merchant",
+      "source_of_truth": true,
+      "kind": "Remote real data in production; fixture-shaped data in deterministic E2E",
+      "sensitivity": "Commercial and potentially customer-linked"
+    },
+    {
+      "name": "Offline Shopify credentials",
+      "owner": "Shopify installation",
+      "source_of_truth": false,
+      "kind": "Encrypted runtime secret",
+      "sensitivity": "Secret"
+    },
+    {
+      "name": "Commerce sessions and mutation journal",
+      "owner": "IntentCart per shop",
+      "source_of_truth": false,
+      "kind": "Derived operational state",
+      "sensitivity": "Commercial and operational"
+    }
+  ],
+  "tests": [
+    {
+      "command": "npm test",
+      "status": "passed",
+      "passed": 113,
+      "skipped": 0,
+      "database": "Disposable local PostgreSQL 16"
+    },
+    {
+      "command": "npm run test:e2e:deterministic",
+      "status": "passed",
+      "passed": 1,
+      "skipped": 0
+    },
+    {
+      "command": "npm run typecheck",
+      "status": "passed"
+    },
+    {
+      "command": "npm run lint",
+      "status": "passed"
+    },
+    {
+      "command": "npm run build",
+      "status": "passed_with_warnings",
+      "details": "344 client modules and 87 SSR modules; React Router future warnings only"
+    },
+    {
+      "command": "npm run db:generate and safe npm run db:validate",
+      "status": "passed"
+    },
+    {
+      "command": "npm run llm:check-config",
+      "status": "passed_without_network"
+    },
+    {
+      "command": "npm run format:check",
+      "status": "pre_existing_failure",
+      "details": "49 historical or unrelated files remain; run-owned files pass targeted formatting checks"
+    },
+    {
+      "command": "local built-runtime smoke",
+      "status": "passed",
+      "details": "GET /health, /health/db, and /ucp/agent-profile returned HTTP 200 against disposable PostgreSQL"
+    },
+    {
+      "command": "candidate rollback validation",
+      "status": "passed",
+      "details": "All three rollback files executed in strict reverse order on disposable PostgreSQL"
+    }
+  ],
+  "deployments": [
+    {
+      "environment": "production",
+      "platform": "Railway",
+      "status": "Verified live infrastructure; candidate not deployed",
+      "commit": null,
+      "previously_observed_commit": "4f92c75257074a3e28ec3c0301043c93bf614933",
+      "post_run_changed": false,
+      "verified_during_post_run": true,
+      "health_status": 200,
+      "database_health_status": 200,
+      "candidate_ucp_profile_status": 404
+    }
+  ],
+  "recoverable_assets": [
+    {
+      "asset": "Runtime URL resolver",
+      "decision": "PROMOTE AS-IS",
+      "destination": "Sage Shopify runtime"
+    },
+    {
+      "asset": "LLM provider contract and registry",
+      "decision": "PROMOTE AS-IS",
+      "destination": "Sage Core"
+    },
+    {
+      "asset": "Commerce mutation coordinator",
+      "decision": "PROMOTE AS-IS",
+      "destination": "Commerce safety layer"
+    },
+    {
+      "asset": "Offline session storage",
+      "decision": "ADAPT",
+      "destination": "Shopify authentication layer after PostgreSQL proof"
+    },
+    {
+      "asset": "IntentState and CatalogSearchRequest",
+      "decision": "EXTRACT CONTRACT",
+      "destination": "Sage Core and CatalogProvider"
+    },
+    {
+      "asset": "Deterministic commerce E2E",
+      "decision": "PROMOTE AS-IS",
+      "destination": "Local CI"
+    }
+  ],
+  "overlaps": [
+    {
+      "space": "catalog-kit-intent-card",
+      "relationship": "Contract comparison required; no code dependency or import"
+    },
+    {
+      "space": "magpie-intent-finder",
+      "relationship": "Intent and VerticalConfig comparison required; no code dependency or import"
+    },
+    {
+      "space": "Intent Card Demo",
+      "relationship": "ExperienceDocument and UCP projection comparison required; no code dependency or import"
+    },
+    {
+      "space": "hydrogen-intent-card",
+      "relationship": "Future renderer only; no runtime dependency"
+    }
+  ],
+  "risks": [
+    {
+      "priority": "P0",
+      "risk": "New PostgreSQL migrations are locally proven but not applied to preview or production"
+    },
+    {
+      "priority": "P0",
+      "risk": "No development-store proof of token refresh, idempotent cart mutation, and checkout"
+    },
+    {
+      "priority": "P0",
+      "risk": "No live LLM provider smoke test after the registry change"
+    },
+    {
+      "priority": "P1",
+      "risk": "Remote Shopify installation must be aligned with the stable deployed origin"
+    },
+    {
+      "priority": "P1",
+      "risk": "Unknown mutations need operational reconciliation and alerting"
+    }
+  ],
+  "open_questions": [
+    "Which provider and model will be approved as production primary?",
+    "Which isolated preview PostgreSQL environment will receive the locally validated migrations first?",
+    "Who owns reconciliation of side_effect_unknown records?",
+    "Which development store and test product are authorized for the first live E2E?",
+    "Which owner and query will expose experiment outcomes in the admin dashboard?"
+  ],
+  "recommended_decision": "ADAPT AND VERIFY: preserve the locally tested runtime, apply migrations in preview, run one provider smoke test and the complete development-store E2E, then deploy a frozen revision before any lab integration"
+}

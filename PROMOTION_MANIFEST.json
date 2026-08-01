@@ -1,0 +1,263 @@
+{
+  "manifest_version": "1.0",
+  "generated_at": "2026-08-01",
+  "product": "Sage / IntentCart",
+  "repository": {
+    "name": "shop-chat-agent",
+    "root": ".",
+    "branch": "codex/intentcart-admin-freeze",
+    "head_at_run_start": "43ae66e4c5b9de4f3bbc74a043701d784febdb8d",
+    "remote": "https://github.com/0xplug75/shop-chat-agent.git"
+  },
+  "principles": [
+    "Sage recommends. Shopify transacts.",
+    "Shopify is authoritative for product, variant, price, availability, cart, checkout, and transaction.",
+    "No commerce mutation occurs without exact shopper confirmation.",
+    "No fixture silently replaces a live provider response.",
+    "Vertical behavior is supplied by packs and is not hard-coded into Sage Core."
+  ],
+  "admin_navigation": ["Home", "Assistant", "Widget", "Knowledge", "Commerce"],
+  "canonical_contract_source": "app/contracts/commerce.schemas.server.js",
+  "contracts": [
+    {
+      "name": "MerchantContext",
+      "version": "1.0",
+      "status": "implemented",
+      "source": "IntentCart",
+      "decision": "PROMOTE_AS_IS"
+    },
+    {
+      "name": "BuyerContext",
+      "version": "1.0",
+      "status": "implemented",
+      "source": "IntentCart",
+      "decision": "PROMOTE_AS_IS"
+    },
+    {
+      "name": "IntentState",
+      "version": "1.0",
+      "status": "implemented_as_commerce_session_component",
+      "source": "IntentCart with consolidation crosswalk",
+      "decision": "NEEDS_COMPARISON",
+      "expected_comparison": "labs/magpie-intent-finder"
+    },
+    {
+      "name": "VerticalPack",
+      "version": "1.0",
+      "status": "generic_boundary_only",
+      "source": "Consolidation architecture",
+      "decision": "EXTRACT_CONTRACT",
+      "expected_input": "A tested first vertical pack from labs/magpie-intent-finder"
+    },
+    {
+      "name": "CatalogSearchInput",
+      "version": "1.0",
+      "status": "implemented_with_compatibility_alias",
+      "source": "IntentCart",
+      "decision": "NEEDS_COMPARISON",
+      "expected_comparison": "labs/catalog-kit-intent-card"
+    },
+    {
+      "name": "CatalogSearchRequest",
+      "version": "1.0",
+      "status": "implemented",
+      "source": "IntentCart stabilization",
+      "decision": "EXTRACT_CONTRACT"
+    },
+    {
+      "name": "NormalizedProduct",
+      "version": "1.0",
+      "status": "implemented_and_used_by_experience_projection",
+      "source": "IntentCart with consolidation crosswalk",
+      "decision": "ADAPT",
+      "expected_comparison": "labs/catalog-kit-intent-card"
+    },
+    {
+      "name": "ProductTrust",
+      "version": "1.0",
+      "status": "implemented_and_used",
+      "source": "IntentCart",
+      "decision": "PROMOTE_AS_IS"
+    },
+    {
+      "name": "RecommendationSet",
+      "version": "1.0",
+      "status": "implemented_and_used",
+      "source": "IntentCart with consolidation crosswalk",
+      "decision": "ADAPT",
+      "expected_comparison": "labs/magpie-intent-finder"
+    },
+    {
+      "name": "CartCandidate",
+      "version": "1.0",
+      "status": "implemented_with_purchase_candidate_alias",
+      "source": "IntentCart",
+      "decision": "PROMOTE_AS_IS"
+    },
+    {
+      "name": "CommerceSession",
+      "version": "1.0",
+      "status": "implemented_and_persisted",
+      "source": "IntentCart",
+      "decision": "PROMOTE_AS_IS"
+    },
+    {
+      "name": "CartSnapshot",
+      "version": "1.0",
+      "status": "implemented_boundary",
+      "source": "IntentCart",
+      "decision": "ADAPT"
+    },
+    {
+      "name": "ExperienceDocument",
+      "version": "1.0",
+      "status": "implemented_persisted_and_emitted",
+      "source": "IntentCart implementation from consolidation boundary",
+      "decision": "NEEDS_COMPARISON",
+      "expected_comparison": "Intent Card Demo"
+    },
+    {
+      "name": "ExperimentAssignment",
+      "version": "1.0",
+      "status": "implemented_and_persisted",
+      "source": "IntentCart",
+      "decision": "PROMOTE_AS_IS"
+    },
+    {
+      "name": "BehaviorSignal",
+      "version": "1.0",
+      "status": "implemented_and_runtime_validated",
+      "source": "IntentCart",
+      "decision": "ADAPT"
+    },
+    {
+      "name": "RecoveryState",
+      "version": "1.0",
+      "status": "implemented_and_persisted",
+      "source": "IntentCart",
+      "decision": "PROMOTE_AS_IS"
+    }
+  ],
+  "provider_ports": [
+    {
+      "name": "CommerceProvider",
+      "path": "app/services/commerce/provider-contract.server.js",
+      "implementations": ["ShopifyProvider", "UcpProvider", "FixtureProvider"],
+      "status": "locally_tested",
+      "production_proof": false
+    },
+    {
+      "name": "LlmProvider",
+      "path": "app/services/llm/provider-contract.server.js",
+      "implementations": ["OpenAI", "Kimi", "Anthropic", "Fake"],
+      "status": "contract_tested",
+      "production_proof": false
+    }
+  ],
+  "runtime_security": {
+    "widget_credential_version": 2,
+    "credential_binding": ["shop", "storefront_origin", "visitor"],
+    "app_proxy_transport": "signed query context plus JSON-body widget credential for POST requests",
+    "conversation_scope": ["shop", "visitor"],
+    "rate_limit_layers": [
+      "visitor",
+      "trusted_network_when_available",
+      "shop",
+      "bootstrap"
+    ],
+    "production_proof": false
+  },
+  "feature_flags": [
+    {
+      "name": "ucpCart",
+      "default": true
+    },
+    {
+      "name": "ucpCheckout",
+      "default": false
+    },
+    {
+      "name": "sessionRecovery",
+      "default": true
+    },
+    {
+      "name": "contextualLauncher",
+      "default": false
+    },
+    {
+      "name": "launcherEntryExperiment",
+      "default": false
+    }
+  ],
+  "migrations": [
+    {
+      "path": "prisma/migrations/20260801090000_secure_expiring_offline_sessions",
+      "status": "validated_on_disposable_postgresql_not_remote",
+      "rollback": true,
+      "rollback_validated_locally": true
+    },
+    {
+      "path": "prisma/migrations/20260801100000_commerce_mutation_journal",
+      "status": "validated_on_disposable_postgresql_not_remote",
+      "rollback": true,
+      "rollback_validated_locally": true
+    },
+    {
+      "path": "prisma/migrations/20260801120000_agentic_shopping_core",
+      "status": "validated_on_disposable_postgresql_not_remote",
+      "rollback": true,
+      "rollback_validated_locally": true
+    }
+  ],
+  "tests": {
+    "full_suite_passed": 113,
+    "postgres_integration_prepared": 8,
+    "postgres_integration_executed": true,
+    "postgres_integration_passed": 8,
+    "all_repository_migrations_applied_locally": 11,
+    "candidate_rollbacks_executed_locally": 3,
+    "deterministic_e2e_passed": true,
+    "dev_store_e2e_passed": false,
+    "production_build_passed": true,
+    "local_built_runtime_smoke_passed": true,
+    "local_smoke_endpoints": ["/health", "/health/db", "/ucp/agent-profile"],
+    "ci_workflow": ".github/workflows/ci.yml",
+    "ci_workflow_executed_remotely": false
+  },
+  "lab_relationships": [
+    {
+      "lab": "labs/catalog-kit-intent-card",
+      "relationship": "contract comparison only",
+      "code_imported": false,
+      "expected_asset": "catalog intent and provider contract comparison"
+    },
+    {
+      "lab": "labs/magpie-intent-finder",
+      "relationship": "future vertical pack and ranking comparison",
+      "code_imported": false,
+      "expected_asset": "first tested vertical pack without skincare coupling"
+    },
+    {
+      "lab": "Intent Card Demo",
+      "relationship": "experience and UCP projection comparison",
+      "code_imported": false,
+      "expected_asset": "shopper renderer compatibility evidence"
+    },
+    {
+      "lab": "labs/hydrogen-intent-card",
+      "relationship": "future rendering surface",
+      "code_imported": false,
+      "expected_asset": "Hydrogen adapter for ExperienceDocument"
+    }
+  ],
+  "promotion_gates": [
+    "Back up an isolated preview database, apply migrations, and repeat all PostgreSQL tests.",
+    "Validate one live OpenAI or Kimi request without commerce tools.",
+    "Deploy an immutable candidate and verify UCP profile and App Proxy.",
+    "Pass install, reinstall, cart idempotence, and checkout handoff on two development stores.",
+    "Configure alerts and ownership for side_effect_unknown.",
+    "Prove database backup and restore.",
+    "Resolve or explicitly accept the React Router advisory with the Shopify adapter dependency constraint."
+  ],
+  "recommended_decision": "HOLD_FOR_PREVIEW_PROOF"
+}

@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { WidgetTokenPayloadSchema } from "../contracts/commerce.schemas.server";
 
-const TOKEN_VERSION = 1;
+const TOKEN_VERSION = 2;
 const DEFAULT_TTL_SECONDS = 10 * 60;
 const MAX_TTL_SECONDS = 15 * 60;
 
@@ -12,20 +12,34 @@ export class WidgetTokenError extends Error {
     this.status = 401;
   }
 }
-export function issueWidgetToken({ shopId, shopDomain, storefrontOrigin = null, ttlSeconds }) {
+export function issueWidgetToken({
+  shopId,
+  shopDomain,
+  storefrontOrigin = null,
+  visitorId,
+  ttlSeconds,
+}) {
   const now = Math.floor(Date.now() / 1000);
   const effectiveTtl = Math.min(
-    Math.max(Number(ttlSeconds || process.env.WIDGET_TOKEN_TTL_SECONDS || DEFAULT_TTL_SECONDS), 60),
-    MAX_TTL_SECONDS
+    Math.max(
+      Number(
+        ttlSeconds ||
+          process.env.WIDGET_TOKEN_TTL_SECONDS ||
+          DEFAULT_TTL_SECONDS,
+      ),
+      60,
+    ),
+    MAX_TTL_SECONDS,
   );
   const payload = WidgetTokenPayloadSchema.parse({
     version: TOKEN_VERSION,
     shopId,
     shopDomain,
     storefrontOrigin,
+    visitorId,
     issuedAt: now,
     expiresAt: now + effectiveTtl,
-    tokenId: crypto.randomUUID()
+    tokenId: crypto.randomUUID(),
   });
   const encodedHeader = encodeJson({ algorithm: "HS256", type: "ICW" });
   const encodedPayload = encodeJson(payload);
@@ -34,7 +48,7 @@ export function issueWidgetToken({ shopId, shopDomain, storefrontOrigin = null, 
 
   return {
     token: `${unsignedToken}.${signature}`,
-    expiresAt: new Date(payload.expiresAt * 1000).toISOString()
+    expiresAt: new Date(payload.expiresAt * 1000).toISOString(),
   };
 }
 
@@ -52,7 +66,10 @@ export function verifyWidgetToken(token) {
   const supplied = Buffer.from(suppliedSignature);
   const expected = Buffer.from(expectedSignature);
 
-  if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) {
+  if (
+    supplied.length !== expected.length ||
+    !timingSafeEqual(supplied, expected)
+  ) {
     throw new WidgetTokenError();
   }
 
@@ -78,7 +95,9 @@ export function verifyWidgetToken(token) {
 }
 
 function sign(value) {
-  return createHmac("sha256", getSigningSecret()).update(value).digest("base64url");
+  return createHmac("sha256", getSigningSecret())
+    .update(value)
+    .digest("base64url");
 }
 
 function encodeJson(value) {
@@ -90,9 +109,12 @@ function decodeJson(value) {
 }
 
 function getSigningSecret() {
-  const secret = process.env.WIDGET_SIGNING_SECRET || process.env.SHOPIFY_API_SECRET;
+  const secret =
+    process.env.WIDGET_SIGNING_SECRET || process.env.SHOPIFY_API_SECRET;
   if (!secret || secret.length < 32) {
-    throw new Error("WIDGET_SIGNING_SECRET must contain at least 32 characters");
+    throw new Error(
+      "WIDGET_SIGNING_SECRET must contain at least 32 characters",
+    );
   }
   return secret;
 }

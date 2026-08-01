@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { createOAuthState } from "./services/oauth-state.server";
 import { getCustomerAccountUrls } from "./services/customer-account-urls.server";
 import { assertTrustedShopifyUrl } from "./security/shopify-domain.server";
+import { resolveRuntimeUrls } from "./config/runtime-urls";
 
 export async function generateAuthUrl(context, conversationId) {
   if (!context?.shopId || !conversationId) {
@@ -17,15 +18,18 @@ export async function generateAuthUrl(context, conversationId) {
     throw new Error("Customer account authorization is unavailable");
   }
 
-  const authorizationUrl = assertTrustedShopifyUrl(accountUrls.authorizationUrl, {
-    shopDomain: context.shopDomain
-  });
+  const authorizationUrl = assertTrustedShopifyUrl(
+    accountUrls.authorizationUrl,
+    {
+      shopDomain: context.shopDomain,
+    },
+  );
   const verifier = generateCodeVerifier();
   const challenge = await generateCodeChallenge(verifier);
   const { state } = await createOAuthState(context, {
     conversationId,
     codeVerifier: verifier,
-    redirectUri
+    redirectUri,
   });
 
   authorizationUrl.searchParams.set("client_id", clientId);
@@ -38,7 +42,7 @@ export async function generateAuthUrl(context, conversationId) {
 
   return {
     url: authorizationUrl.toString(),
-    conversation_id: conversationId
+    conversation_id: conversationId,
   };
 }
 
@@ -51,12 +55,5 @@ export async function generateCodeChallenge(verifier) {
 }
 
 function getRedirectUri() {
-  const configured = process.env.REDIRECT_URL;
-  const appUrl = process.env.APP_URL || process.env.SHOPIFY_APP_URL;
-  const value = configured || (appUrl ? `${appUrl.replace(/\/$/, "")}/customer-auth/callback` : "");
-  const url = new URL(value);
-  if (url.protocol !== "https:" && process.env.NODE_ENV === "production") {
-    throw new Error("Customer OAuth redirect must use HTTPS");
-  }
-  return url.toString();
+  return resolveRuntimeUrls().customerOAuthRedirectUrl;
 }

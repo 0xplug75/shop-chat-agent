@@ -10,33 +10,44 @@ export class ConversationNotFoundError extends Error {
 export async function getConversationHistory(context, conversationId) {
   assertContext(context);
   const conversation = await prisma.conversation.findFirst({
-    where: { id: conversationId, shopId: context.shopId },
-    select: { id: true }
+    where: {
+      id: conversationId,
+      shopId: context.shopId,
+      ...(context.visitorId ? { visitorId: context.visitorId } : {}),
+    },
+    select: { id: true },
   });
   if (!conversation) throw new ConversationNotFoundError();
 
   return prisma.message.findMany({
     where: { shopId: context.shopId, conversationId },
-    orderBy: { createdAt: "asc" }
+    orderBy: { createdAt: "asc" },
   });
 }
 
-export async function saveConversationMessage(context, {
-  conversationId,
-  role,
-  content,
-  structuredContent,
-  toolCalls,
-  toolResults,
-  model,
-  inputTokens,
-  outputTokens,
-  latencyMs
-}) {
+export async function saveConversationMessage(
+  context,
+  {
+    conversationId,
+    role,
+    content,
+    structuredContent,
+    toolCalls,
+    toolResults,
+    model,
+    inputTokens,
+    outputTokens,
+    latencyMs,
+  },
+) {
   assertContext(context);
   const conversation = await prisma.conversation.findFirst({
-    where: { id: conversationId, shopId: context.shopId },
-    select: { id: true }
+    where: {
+      id: conversationId,
+      shopId: context.shopId,
+      ...(context.visitorId ? { visitorId: context.visitorId } : {}),
+    },
+    select: { id: true },
   });
   if (!conversation) throw new ConversationNotFoundError();
 
@@ -52,8 +63,8 @@ export async function saveConversationMessage(context, {
       model,
       inputTokens,
       outputTokens,
-      latencyMs
-    }
+      latencyMs,
+    },
   });
 }
 

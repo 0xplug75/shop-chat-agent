@@ -8,11 +8,8 @@ export const merchantDefaults = {
     personality: "helpful, concise, and commerce-focused",
     brandVoice: "friendly, clear, and grounded in real product data",
     welcomeMessage: "Hi, I can help you find the right product.",
-    quickActions: [
-      "Find the right product",
-      "Compare options",
-      "Ready to buy"
-    ]
+    quickActions: ["Find the right product", "Compare options", "Ready to buy"],
+    providerPreference: "auto",
   },
   widget: {
     position: "bottom-right",
@@ -21,24 +18,57 @@ export const merchantDefaults = {
       primary: "#4f46e5",
       background: "#ffffff",
       text: "#111827",
-      accent: "#a78bfa"
+      accent: "#a78bfa",
     },
     behavior: {
       openOnLoad: false,
       showQuickActions: true,
       entryBehavior: "auto",
-      allowFullscreen: true
-    }
+      allowFullscreen: true,
+      maxProactivePerSession: 1,
+    },
+  },
+  knowledge: {
+    shopifyCatalogEnabled: true,
+    policiesEnabled: true,
+    approvedDocumentsEnabled: false,
+    activeVerticals: [],
+    provenanceRequired: true,
   },
   shopping: {
     recommendationRules: {
       maxProducts: 3,
       requireVariantConfirmation: true,
-      preferAvailableInventory: true
+      preferAvailableInventory: true,
     },
     bundleStrategy: "none",
     bestsellerPriority: "medium",
-    outOfStockPolicy: "explain_and_suggest_alternatives"
+    outOfStockPolicy: "explain_and_suggest_alternatives",
+    commerceProvider: "shopify",
+    checkoutStrategy: "shopify_handoff",
+    ucp: {
+      businessUrl: null,
+      cartEnabled: true,
+      checkoutEnabled: false,
+      completeEnabled: false,
+    },
+    recovery: {
+      enabled: true,
+      ttlHours: 24,
+    },
+    featureFlags: {
+      ucpCart: true,
+      ucpCheckout: false,
+      sessionRecovery: true,
+      contextualLauncher: false,
+    },
+  },
+  experiments: {
+    killSwitch: false,
+    launcherEntry: {
+      enabled: false,
+      treatmentPercentage: 50,
+    },
   },
   analytics: {
     enabled: true,
@@ -46,29 +76,29 @@ export const merchantDefaults = {
       "widget_opened",
       "message_sent",
       "catalog_searched",
-      "product_recommended",
+      "products_recommended",
       "variant_selected",
       "cart_updated",
-      "checkout_clicked"
-    ]
+      "checkout_opened",
+    ],
   },
   integrations: {
     klaviyo: {
-      enabled: false
+      enabled: false,
     },
     posthog: {
-      enabled: false
+      enabled: false,
     },
     ga4: {
-      enabled: false
+      enabled: false,
     },
     make: {
       enabled: false,
-      webhookUrl: ""
+      webhookUrl: "",
     },
     n8n: {
       enabled: false,
-      webhookUrl: ""
-    }
-  }
+      webhookUrl: "",
+    },
+  },
 };

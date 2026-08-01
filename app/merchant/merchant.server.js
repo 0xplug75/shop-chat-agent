@@ -16,16 +16,25 @@ export async function getMerchantConfig(context) {
 }
 
 export async function getEffectiveMerchantConfig(context) {
+  const snapshot = await getMerchantConfigSnapshot(context);
+  return snapshot.config;
+}
+
+export async function getMerchantConfigSnapshot(context) {
   assertContext(context);
   let record = await prisma.merchantConfig.findUnique({
-    where: { shopId: context.shopId }
+    where: { shopId: context.shopId },
   });
 
   if (!record) {
     record = await createDefaultMerchantConfig(context);
   }
 
-  return fromRecord(record);
+  return {
+    config: fromRecord(record),
+    version: record.version,
+    updatedAt: record.updatedAt,
+  };
 }
 
 export async function createDefaultMerchantConfig(context) {
@@ -35,7 +44,7 @@ export async function createDefaultMerchantConfig(context) {
   return prisma.merchantConfig.upsert({
     where: { shopId: context.shopId },
     create: toRecord(context.shopId, seed),
-    update: {}
+    update: {},
   });
 }
 
@@ -45,13 +54,13 @@ export async function updateMerchantConfig(context, input, expectedVersion) {
   const result = await prisma.merchantConfig.updateMany({
     where: {
       shopId: context.shopId,
-      version: expectedVersion
+      version: expectedVersion,
     },
     data: {
       ...toRecord(undefined, parsed),
       shopId: undefined,
-      version: { increment: 1 }
-    }
+      version: { increment: 1 },
+    },
   });
 
   if (result.count !== 1) throw new MerchantConfigVersionConflictError();
@@ -59,7 +68,9 @@ export async function updateMerchantConfig(context, input, expectedVersion) {
 }
 
 export function getSeedMerchantConfig() {
-  return parseMerchantConfig(mergeDefaults(merchantDefaults, editableMerchantConfig));
+  return parseMerchantConfig(
+    mergeDefaults(merchantDefaults, editableMerchantConfig),
+  );
 }
 
 export function clearMerchantConfigCache() {
@@ -69,21 +80,26 @@ export function clearMerchantConfigCache() {
 
 function fromRecord(record) {
   const seed = getSeedMerchantConfig();
-  return parseMerchantConfig({
+  const legacy = {
     ...seed,
     assistant: {
+      ...seed.assistant,
       name: record.assistantName,
       personality: record.personality,
       brandVoice: record.brandVoice,
       welcomeMessage: record.welcomeMessage,
-      quickActions: record.quickPrompts
+      quickActions: record.quickPrompts,
     },
     shopping: {
       ...seed.shopping,
       ...record.commerceRules,
-      recommendationRules: record.recommendationRules
-    }
-  });
+      recommendationRules: record.recommendationRules,
+    },
+  };
+
+  return parseMerchantConfig(
+    record.settings ? mergeDefaults(legacy, record.settings) : legacy,
+  );
 }
 
 function toRecord(shopId, config) {
@@ -94,12 +110,13 @@ function toRecord(shopId, config) {
     brandVoice: config.assistant.brandVoice,
     welcomeMessage: config.assistant.welcomeMessage,
     quickPrompts: config.assistant.quickActions,
+    settings: config,
     commerceRules: {
       bundleStrategy: config.shopping.bundleStrategy,
       bestsellerPriority: config.shopping.bestsellerPriority,
-      outOfStockPolicy: config.shopping.outOfStockPolicy
+      outOfStockPolicy: config.shopping.outOfStockPolicy,
     },
-    recommendationRules: config.shopping.recommendationRules
+    recommendationRules: config.shopping.recommendationRules,
   };
 }
 
@@ -130,4 +147,3 @@ function mergeDefaults(defaults, overrides) {
 function isPlainObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
-

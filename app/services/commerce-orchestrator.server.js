@@ -1,4 +1,3 @@
-import MCPClient from "../mcp-client";
 import { createLogger } from "../lib/logger.server";
 import { getMerchantConfig } from "../merchant/merchant.server";
 import { withConversationContext } from "../security/merchant-context.server";
@@ -8,27 +7,32 @@ import {
   applyIntentToCommerceSession,
   getCommerceContext,
   getOrCreateCommerceSession,
-  updateCommerceSession
+  updateCommerceSession,
 } from "./commerce-session.server";
 import { createIntentEngine } from "./intent-router.server";
 import { createLLMGateway } from "./llm-gateway.server";
 import { createKnowledgeService } from "./knowledge.server";
-import { createCatalogAdapter } from "./catalog-adapter.server";
-import { createPolicyAdapter } from "./policy-adapter.server";
-import { createCartAdapter } from "./cart-adapter.server";
-import { createCheckoutAdapter } from "./checkout-adapter.server";
 import { createToolRegistry } from "./tool-registry.server";
 import { recordCommerceEvent } from "./analytics-event.server";
-import { resolveCustomerAccountUrls } from "./customer-account-discovery.server";
+import { createCommerceProvider } from "./commerce/provider-registry.server";
+import {
+  createCommerceMutationCoordinator,
+  createTurnSideEffectState,
+} from "./commerce-mutation.server";
+import {
+  getOrCreateExperimentAssignment,
+  LAUNCHER_ENTRY_EXPERIMENT,
+  recordExperimentExposure,
+} from "./experiment.server";
+import { markRecoveryRestored } from "./recovery.server";
+import { buildExperienceDocument } from "./experience-document.server";
 
 export function createCommerceOrchestrator({
   intentEngine,
   llmGateway,
-  knowledgeService = createKnowledgeService()
+  knowledgeService = createKnowledgeService(),
+  commerceProviderFactory = createCommerceProvider,
 } = {}) {
-  const gateway = llmGateway || createLLMGateway();
-  const effectiveIntentEngine = intentEngine || createIntentEngine({ llmGateway: gateway });
-
   return {
     async handleTurn({
       context: baseContext,
@@ -36,40 +40,121 @@ export function createCommerceOrchestrator({
       conversationId,
       visitorId,
       promptType,
-      stream
+      stream,
     }) {
       const startedAt = Date.now();
+      const merchantConfig = await getMerchantConfig(baseContext);
+      const gateway =
+        llmGateway ||
+        createLLMGateway({
+          provider:
+            merchantConfig.assistant.providerPreference === "auto"
+              ? undefined
+              : merchantConfig.assistant.providerPreference,
+        });
+      const effectiveIntentEngine =
+        intentEngine || createIntentEngine({ llmGateway: gateway });
+      const recoveryEnabled = Boolean(
+        merchantConfig.shopping.recovery.enabled &&
+        merchantConfig.shopping.featureFlags.sessionRecovery,
+      );
       let session = await getOrCreateCommerceSession(baseContext, {
         conversationId,
-        visitorId
+        visitorId,
+        allowRecovery: recoveryEnabled,
+        ttlSeconds: recoveryEnabled
+          ? merchantConfig.shopping.recovery.ttlHours * 60 * 60
+          : undefined,
       });
-      const context = withConversationContext(baseContext, session.conversationId);
+      let context = withConversationContext(
+        baseContext,
+        session.conversationId,
+      );
+      const launcherExperiment = merchantConfig.experiments.launcherEntry;
+      const experimentAssignment = await getOrCreateExperimentAssignment(
+        context,
+        {
+          visitorId: session.visitorId || visitorId,
+          experimentKey: LAUNCHER_ENTRY_EXPERIMENT,
+          enabled: launcherExperiment.enabled,
+          killSwitch: merchantConfig.experiments.killSwitch,
+          treatmentPercentage: launcherExperiment.treatmentPercentage,
+        },
+      );
+      if (
+        experimentAssignment &&
+        session.experimentAssignmentId !== experimentAssignment.id
+      ) {
+        session = await updateCommerceSession(
+          context,
+          session.id,
+          { experimentAssignmentId: experimentAssignment.id },
+          session.version,
+        );
+      }
+      if (experimentAssignment) {
+        context = Object.freeze({
+          ...context,
+          experimentKey: experimentAssignment.experimentKey,
+          experimentVariant: experimentAssignment.variant,
+        });
+      }
       const logger = createLogger({
         requestId: context.requestId,
         shopId: context.shopId,
         conversationId: session.conversationId,
-        commerceSessionId: session.id
+        commerceSessionId: session.id,
       });
       const isNewConversation = session.messages.length === 0;
 
-      stream?.sendMessage({ type: "id", conversation_id: session.conversationId });
+      if (session.wasRecovered && session.recoveryState) {
+        await safeEvent(context, logger, {
+          eventType: "recovery_restored",
+          conversationId: session.conversationId,
+          commerceSessionId: session.id,
+          payload: {
+            recoveryVersion: session.recoveryState.version,
+            restoredAt: new Date().toISOString(),
+          },
+        });
+        session = {
+          ...session,
+          recoveryState: markRecoveryRestored(session.recoveryState),
+        };
+      }
+
+      if (experimentAssignment) {
+        try {
+          await recordExperimentExposure(context, experimentAssignment, {
+            conversationId: session.conversationId,
+            commerceSessionId: session.id,
+          });
+        } catch (error) {
+          logger.warn("Experiment exposure could not be recorded", { error });
+        }
+      }
+
+      stream?.sendMessage({
+        type: "id",
+        conversation_id: session.conversationId,
+      });
       await appendUserMessage(context, session, message);
       session = {
         ...session,
-        messages: [...session.messages, { role: "user", content: message }]
+        messages: [...session.messages, { role: "user", content: message }],
       };
       await safeEvent(context, logger, {
         eventType: "message_sent",
         conversationId: session.conversationId,
         commerceSessionId: session.id,
-        payload: { channel: "STOREFRONT_WIDGET" }
+        payload: { channel: "STOREFRONT_WIDGET" },
       });
       if (isNewConversation) {
         await safeEvent(context, logger, {
           eventType: "conversation_started",
           conversationId: session.conversationId,
           commerceSessionId: session.id,
-          payload: { channel: "STOREFRONT_WIDGET" }
+          payload: { channel: "STOREFRONT_WIDGET" },
         });
       }
 
@@ -79,7 +164,7 @@ export function createCommerceOrchestrator({
         eventType: "intent_captured",
         conversationId: session.conversationId,
         commerceSessionId: session.id,
-        payload: { goal: intent.goal, confidence: intent.confidence }
+        payload: { goal: intent.goal, confidence: intent.confidence },
       });
 
       if (intent.missingInformation.length > 0) {
@@ -87,34 +172,42 @@ export function createCommerceOrchestrator({
           eventType: "clarification_requested",
           conversationId: session.conversationId,
           commerceSessionId: session.id,
-          payload: { fields: intent.missingInformation }
+          payload: { fields: intent.missingInformation },
         });
       }
 
-      const merchantConfig = await getMerchantConfig(context);
-      const accountUrls = await safeResolveCustomerUrls(context, session.conversationId, logger);
-      const mcpClient = new MCPClient({
+      const commerceProvider = commerceProviderFactory({
         context,
-        customerMcpEndpoint: accountUrls?.mcpApiUrl
+        merchantConfig,
       });
-      await mcpClient.initialize();
+      const commerceDiscovery = await commerceProvider.initialize();
+      await safeEvent(context, logger, {
+        eventType: "commerce_provider_initialized",
+        conversationId: session.conversationId,
+        commerceSessionId: session.id,
+        payload: {
+          provider: commerceProvider.id,
+          capabilities: commerceDiscovery.capabilities,
+        },
+      });
 
-      const checkoutAdapter = createCheckoutAdapter({
-        shopDomain: context.shopDomain,
-        storefrontOrigin: context.storefrontOrigin
-      });
+      const sideEffectState = createTurnSideEffectState();
       const registry = createToolRegistry({
-        catalogAdapter: createCatalogAdapter(mcpClient),
-        policyAdapter: createPolicyAdapter(mcpClient),
-        cartAdapter: createCartAdapter(mcpClient),
-        checkoutAdapter,
-        knowledgeService
+        commerceProvider,
+        knowledgeService,
+        mutationCoordinator: createCommerceMutationCoordinator(),
       });
       const products = [];
       let cartState = null;
       let confirmationRequired = null;
-      const confirmation = resolveConfirmation(message, session.pendingMessages);
-      const confirmationRejected = resolveConfirmationRejection(message, session.pendingMessages);
+      const confirmation = resolveConfirmation(
+        message,
+        session.pendingMessages,
+      );
+      const confirmationRejected = resolveConfirmationRejection(
+        message,
+        session.pendingMessages,
+      );
 
       if (confirmation) {
         await safeEvent(context, logger, {
@@ -124,52 +217,68 @@ export function createCommerceOrchestrator({
           payload: {
             productId: confirmation.productId,
             variantId: confirmation.variantId,
-            quantity: confirmation.quantity
-          }
+            quantity: confirmation.quantity,
+          },
         });
       } else if (confirmationRejected) {
-        session = await updateCommerceSession(context, session.id, {
-          journeyStage: "COMPARE",
-          pendingMessages: session.pendingMessages.filter((item) => item?.type !== "cart_confirmation")
-        }, session.version);
+        session = await updateCommerceSession(
+          context,
+          session.id,
+          {
+            journeyStage: "COMPARE",
+            pendingMessages: session.pendingMessages.filter(
+              (item) => item?.type !== "cart_confirmation",
+            ),
+          },
+          session.version,
+        );
         await safeEvent(context, logger, {
           eventType: "cart_confirmation_rejected",
           conversationId: session.conversationId,
           commerceSessionId: session.id,
-          payload: {}
+          payload: {},
         });
       }
 
       const executeTool = async (name, input) => {
-        stream?.sendMessage({ type: "tool_use", tool_use_message: `Calling tool: ${name}` });
+        stream?.sendMessage({
+          type: "tool_use",
+          tool_use_message: `Calling tool: ${name}`,
+        });
         await safeEvent(context, logger, {
           eventType: "tool_called",
           conversationId: session.conversationId,
           commerceSessionId: session.id,
-          payload: { tool: name }
+          payload: { tool: name },
         });
 
         try {
           const result = await registry.execute(name, input, {
             context,
             session,
-            confirmation
+            confirmation,
+            sideEffectState,
           });
           if (result.sessionPatch) {
             session = await updateCommerceSession(
               context,
               session.id,
               result.sessionPatch,
-              session.version
+              session.version,
             );
           }
 
-          if (result.type === "catalog") products.push(...(result.products || []));
-          if (result.type === "confirmation_required") confirmationRequired = result.data;
-          if (result.type === "cart_updated" || result.type === "checkout_handoff") {
+          if (result.type === "catalog")
+            products.push(...(result.products || []));
+          if (result.type === "confirmation_required")
+            confirmationRequired = result.data;
+          if (
+            result.type === "cart_updated" ||
+            result.type === "checkout_handoff"
+          ) {
             cartState = {
               cartId: session.cartId,
-              checkoutUrl: session.checkoutUrl
+              checkoutUrl: session.checkoutUrl,
             };
           }
           await recordResultEvent(context, logger, session, name, result);
@@ -178,14 +287,14 @@ export function createCommerceOrchestrator({
           if (error.code === "AUTH_REQUIRED") {
             stream?.sendMessage({
               type: "auth_required",
-              authorization_url: error.authorizationUrl
+              authorization_url: error.authorizationUrl,
             });
           }
           await safeEvent(context, logger, {
             eventType: "tool_failed",
             conversationId: session.conversationId,
             commerceSessionId: session.id,
-            payload: { tool: name, code: error.code || "TOOL_FAILED" }
+            payload: { tool: name, code: error.code || "TOOL_FAILED" },
           });
           throw error;
         }
@@ -197,46 +306,91 @@ export function createCommerceOrchestrator({
           messages: session.messages,
           promptType,
           merchantConfig,
-          commerceContext: getCommerceContext(session),
+          commerceContext: {
+            ...getCommerceContext(session),
+            experiment: experimentAssignment,
+          },
           tools: registry.listModelTools(),
           executeTool,
-          onText: (chunk) => stream?.sendMessage({ type: "chunk", chunk })
+          sideEffectState,
+          onText: (chunk) => stream?.sendMessage({ type: "chunk", chunk }),
         });
       } catch (error) {
         await safeEvent(context, logger, {
           eventType: "llm_failed",
           conversationId: session.conversationId,
           commerceSessionId: session.id,
-          payload: { code: error.code || "LLM_FAILED" }
+          payload: { code: error.code || "LLM_FAILED" },
         });
         throw error;
       }
 
-      const assistantText = llmResult.text.trim() || fallbackAssistantText({
-        confirmationRequired,
-        products
-      });
+      const assistantText =
+        llmResult.text.trim() ||
+        fallbackAssistantText({
+          confirmationRequired,
+          products,
+        });
       if (!llmResult.text.trim()) {
         stream?.sendMessage({ type: "chunk", chunk: assistantText });
       }
+      const turnProducts = uniqueProducts(products);
+      const { document: experienceDocument, recommendations } =
+        buildExperienceDocument({
+          context,
+          merchantConfig,
+          session,
+          intent,
+          assistantText,
+          products: turnProducts,
+          confirmationRequired,
+          cartState,
+          providerId: commerceProvider.id,
+        });
       await appendAssistantMessage(context, session, {
         content: assistantText,
         structuredContent: {
-          products: uniqueProducts(products),
+          products: turnProducts,
+          recommendations,
           confirmationRequired,
-          cartState
+          cartState,
+          experienceDocument,
         },
         toolCalls: llmResult.toolCalls,
         toolResults: llmResult.toolResults,
         model: llmResult.model,
+        provider: llmResult.provider,
+        costMicros: llmResult.costMicros,
         inputTokens: llmResult.inputTokens,
         outputTokens: llmResult.outputTokens,
-        latencyMs: llmResult.latencyMs
+        latencyMs: llmResult.latencyMs,
       });
 
+      if (recoveryEnabled && session.recoveryState) {
+        await safeEvent(context, logger, {
+          eventType: "recovery_saved",
+          conversationId: session.conversationId,
+          commerceSessionId: session.id,
+          payload: {
+            journeyStage: session.journeyStage,
+            hasRecommendations: session.recommendedProducts.length > 0,
+            hasCartCandidate: Boolean(
+              session.selectedProductId && session.selectedVariantId,
+            ),
+          },
+        });
+      }
+
       stream?.sendMessage({ type: "message_complete" });
-      if (products.length > 0) {
-        stream?.sendMessage({ type: "product_results", products: uniqueProducts(products) });
+      stream?.sendMessage({
+        type: "experience_document",
+        document: experienceDocument,
+      });
+      if (turnProducts.length > 0) {
+        stream?.sendMessage({
+          type: "product_results",
+          products: turnProducts,
+        });
       }
       if (cartState) stream?.sendMessage({ type: "cart_state", ...cartState });
       stream?.sendMessage({ type: "end_turn" });
@@ -247,31 +401,24 @@ export function createCommerceOrchestrator({
         toolCount: llmResult.toolCalls.length,
         durationMs: Date.now() - startedAt,
         status: "ok",
-        provider: gateway.provider,
+        provider: llmResult.provider,
         inputTokens: llmResult.inputTokens,
-        outputTokens: llmResult.outputTokens
+        outputTokens: llmResult.outputTokens,
+        costMicros: llmResult.costMicros,
       });
 
       return {
         text: assistantText,
         conversationId: session.conversationId,
         commerceSession: session,
-        products: uniqueProducts(products),
+        products: turnProducts,
+        experienceDocument,
         confirmationRequired,
         cartState,
-        intent
+        intent,
       };
-    }
+    },
   };
-}
-
-async function safeResolveCustomerUrls(context, conversationId, logger) {
-  try {
-    return await resolveCustomerAccountUrls(context, conversationId);
-  } catch (error) {
-    logger.warn("Customer account discovery unavailable", { error });
-    return null;
-  }
 }
 
 async function safeEvent(context, logger, event) {
@@ -280,19 +427,21 @@ async function safeEvent(context, logger, event) {
   } catch (error) {
     logger.warn("Commerce event could not be recorded", {
       eventType: event.eventType,
-      error
+      error,
     });
   }
 }
 
 async function recordResultEvent(context, logger, session, toolName, result) {
   const byResult = {
-    catalog: result.products?.length ? "products_recommended" : "catalog_search_empty",
+    catalog: result.products?.length
+      ? "products_recommended"
+      : "catalog_search_empty",
     comparison: "comparison_requested",
     knowledge: "knowledge_retrieved",
     confirmation_required: "cart_confirmation_requested",
     cart_updated: "cart_updated",
-    checkout_handoff: "checkout_opened"
+    checkout_handoff: "checkout_opened",
   };
   const eventType = byResult[result.type];
   if (!eventType) return;
@@ -301,7 +450,7 @@ async function recordResultEvent(context, logger, session, toolName, result) {
       eventType: "catalog_searched",
       conversationId: session.conversationId,
       commerceSessionId: session.id,
-      payload: { tool: toolName }
+      payload: { tool: toolName },
     });
   }
   await safeEvent(context, logger, {
@@ -310,9 +459,21 @@ async function recordResultEvent(context, logger, session, toolName, result) {
     commerceSessionId: session.id,
     payload: {
       tool: toolName,
-      resultCount: Array.isArray(result.data) ? result.data.length : undefined
-    }
+      resultCount: Array.isArray(result.data) ? result.data.length : undefined,
+    },
   });
+  if (result.type === "checkout_handoff" && result.provider === "ucp") {
+    await safeEvent(context, logger, {
+      eventType: "ucp_handoff",
+      conversationId: session.conversationId,
+      commerceSessionId: session.id,
+      payload: {
+        requiresEscalation: Boolean(result.requiresEscalation),
+        warningCount: result.warnings?.length || 0,
+        disclosureCount: result.disclosures?.length || 0,
+      },
+    });
+  }
 }
 
 export function resolveConfirmation(message, pendingMessages = []) {
@@ -322,9 +483,11 @@ export function resolveConfirmation(message, pendingMessages = []) {
   if (!pending || !isExplicitConfirmation(message)) return null;
   return {
     accepted: true,
+    confirmationId: pending.confirmationId,
+    selectionRevision: pending.selectionRevision,
     productId: pending.productId,
     variantId: pending.variantId,
-    quantity: pending.quantity
+    quantity: pending.quantity,
   };
 }
 
@@ -333,11 +496,15 @@ export function isExplicitConfirmation(message) {
     .normalize("NFKC")
     .toLocaleLowerCase()
     .trim();
-  return /^(yes|yes please|i confirm|confirmed|confirm it|go ahead|add it|oui|oui merci|je confirme|vas-y|sí|si|confirmo|añádelo)[.!\s]*$/u.test(normalized);
+  return /^(yes|yes please|i confirm|confirmed|confirm it|go ahead|add it|oui|oui merci|je confirme|vas-y|sí|si|confirmo|añádelo)[.!\s]*$/u.test(
+    normalized,
+  );
 }
 
 export function resolveConfirmationRejection(message, pendingMessages = []) {
-  const hasPending = pendingMessages.some((item) => item?.type === "cart_confirmation");
+  const hasPending = pendingMessages.some(
+    (item) => item?.type === "cart_confirmation",
+  );
   return hasPending && isExplicitRejection(message);
 }
 
@@ -346,14 +513,22 @@ export function isExplicitRejection(message) {
     .normalize("NFKC")
     .toLocaleLowerCase()
     .trim();
-  return /^(no|no thanks|cancel|do not add it|non|non merci|annule|n'ajoute pas|no gracias|cancela)[.!\s]*$/u.test(normalized);
+  return /^(no|no thanks|cancel|do not add it|non|non merci|annule|n'ajoute pas|no gracias|cancela)[.!\s]*$/u.test(
+    normalized,
+  );
 }
 
 function uniqueProducts(products) {
-  return [...new Map(products.map((product) => [
-    String(product.productId || product.product_id || product.id),
-    product
-  ])).values()].filter((product) => product.id || product.productId || product.product_id).slice(0, 3);
+  return [
+    ...new Map(
+      products.map((product) => [
+        String(product.productId || product.product_id || product.id),
+        product,
+      ]),
+    ).values(),
+  ]
+    .filter((product) => product.id || product.productId || product.product_id)
+    .slice(0, 3);
 }
 
 function fallbackAssistantText({ confirmationRequired, products }) {

@@ -1,5 +1,13 @@
 import prisma from "../db.server";
-import { JourneyStageSchema, ShoppingIntentSchema } from "../contracts/commerce.schemas.server";
+import {
+  JourneyStageSchema,
+  ShoppingIntentSchema,
+} from "../contracts/commerce.schemas.server";
+import {
+  buildRecoveryState,
+  canRestoreRecovery,
+  markRecoveryRestored,
+} from "./recovery.server";
 
 const DEFAULT_TTL_SECONDS = 30 * 60;
 
@@ -11,7 +19,7 @@ const ALLOWED_TRANSITIONS = {
   CHECKOUT: new Set(["CHECKOUT", "COMPLETED", "ABANDONED", "EXPIRED"]),
   COMPLETED: new Set(["COMPLETED"]),
   ABANDONED: new Set(["ABANDONED"]),
-  EXPIRED: new Set(["EXPIRED"])
+  EXPIRED: new Set(["EXPIRED"]),
 };
 
 export class CommerceSessionConflictError extends Error {
@@ -30,28 +38,83 @@ export class InvalidJourneyTransitionError extends Error {
   }
 }
 
-export async function getOrCreateCommerceSession(context, {
-  conversationId,
-  visitorId,
-  channel = "STOREFRONT_WIDGET"
-} = {}) {
+export async function getOrCreateCommerceSession(
+  context,
+  {
+    conversationId,
+    visitorId,
+    channel = "STOREFRONT_WIDGET",
+    allowRecovery = false,
+    ttlSeconds,
+  } = {},
+) {
   assertContext(context);
+  if (context.visitorId && visitorId && context.visitorId !== visitorId) {
+    throw new CommerceSessionConflictError();
+  }
+  const boundVisitorId = context.visitorId || visitorId || null;
 
   return prisma.$transaction(async (tx) => {
-    let resolvedConversationId = conversationId || crypto.randomUUID();
-    let conversation = await tx.conversation.findFirst({
-      where: { id: resolvedConversationId, shopId: context.shopId }
-    });
+    const now = new Date();
+    let wasRecovered = false;
+    let resolvedConversationId = conversationId || null;
+    let conversation = resolvedConversationId
+      ? await tx.conversation.findFirst({
+          where: {
+            id: resolvedConversationId,
+            shopId: context.shopId,
+            ...(boundVisitorId ? { visitorId: boundVisitorId } : {}),
+          },
+        })
+      : null;
+    let record = null;
+
+    if (!conversation && !conversationId && allowRecovery && boundVisitorId) {
+      const candidate = await tx.commerceSession.findFirst({
+        where: {
+          shopId: context.shopId,
+          visitorId: boundVisitorId,
+          expiresAt: { gt: now },
+          journeyStage: {
+            notIn: ["COMPLETED", "ABANDONED", "EXPIRED"],
+          },
+        },
+        orderBy: { lastActivityAt: "desc" },
+      });
+
+      if (canRestoreRecovery(candidate, { visitorId: boundVisitorId, now })) {
+        conversation = await tx.conversation.findFirst({
+          where: {
+            id: candidate.conversationId,
+            shopId: context.shopId,
+            visitorId: boundVisitorId,
+          },
+        });
+        if (conversation) {
+          record = await tx.commerceSession.update({
+            where: { id: candidate.id },
+            data: {
+              recoveryState: markRecoveryRestored(candidate.recoveryState, now),
+              lastActivityAt: now,
+              version: { increment: 1 },
+            },
+          });
+          resolvedConversationId = conversation.id;
+          wasRecovered = true;
+        }
+      }
+    }
 
     if (!conversation) {
+      resolvedConversationId = resolvedConversationId || crypto.randomUUID();
       try {
         conversation = await tx.conversation.create({
           data: {
             id: resolvedConversationId,
             shopId: context.shopId,
-            visitorId: visitorId || null,
-            channel
-          }
+            visitorId: boundVisitorId,
+            channel,
+          },
         });
       } catch (error) {
         if (error?.code !== "P2002") throw error;
@@ -60,25 +123,27 @@ export async function getOrCreateCommerceSession(context, {
           data: {
             id: resolvedConversationId,
             shopId: context.shopId,
-            visitorId: visitorId || null,
-            channel
-          }
+            visitorId: boundVisitorId,
+            channel,
+          },
         });
       }
     }
 
-    let record = await tx.commerceSession.findUnique({
-      where: { conversationId: conversation.id }
-    });
+    if (!record) {
+      record = await tx.commerceSession.findUnique({
+        where: { conversationId: conversation.id },
+      });
+    }
 
-    if (record && record.expiresAt <= new Date()) {
+    if (record && record.expiresAt <= now) {
       await tx.commerceSession.update({
         where: { id: record.id },
-        data: { journeyStage: "EXPIRED", version: { increment: 1 } }
+        data: { journeyStage: "EXPIRED", version: { increment: 1 } },
       });
       await tx.conversation.update({
         where: { id: conversation.id },
-        data: { status: "EXPIRED", endedAt: new Date() }
+        data: { status: "EXPIRED", endedAt: new Date() },
       });
 
       resolvedConversationId = crypto.randomUUID();
@@ -86,28 +151,33 @@ export async function getOrCreateCommerceSession(context, {
         data: {
           id: resolvedConversationId,
           shopId: context.shopId,
-          visitorId: visitorId || null,
-          channel
-        }
+          visitorId: boundVisitorId,
+          channel,
+        },
       });
       record = null;
     }
 
     if (!record) {
       record = await tx.commerceSession.create({
-        data: createSessionData(context, conversation.id, visitorId)
+        data: createSessionData(
+          context,
+          conversation.id,
+          boundVisitorId,
+          ttlSeconds,
+        ),
       });
     }
 
     const messages = await tx.message.findMany({
       where: {
         shopId: context.shopId,
-        conversationId: conversation.id
+        conversationId: conversation.id,
       },
-      orderBy: { createdAt: "asc" }
+      orderBy: { createdAt: "asc" },
     });
 
-    return toDomainSession(record, messages);
+    return toDomainSession(record, messages, { wasRecovered });
   });
 }
 
@@ -117,9 +187,9 @@ export async function getCommerceSession(context, commerceSessionId) {
     where: { id: commerceSessionId, shopId: context.shopId },
     include: {
       conversation: {
-        include: { messages: { orderBy: { createdAt: "asc" } } }
-      }
-    }
+        include: { messages: { orderBy: { createdAt: "asc" } } },
+      },
+    },
   });
   if (!record) return null;
   return toDomainSession(record, record.conversation.messages);
@@ -128,20 +198,26 @@ export async function getCommerceSession(context, commerceSessionId) {
 export async function appendUserMessage(context, session, message) {
   return appendMessage(context, session, {
     role: "user",
-    content: message
+    content: message,
   });
 }
 
-export async function appendAssistantMessage(context, session, {
-  content,
-  structuredContent,
-  toolCalls,
-  toolResults,
-  model,
-  inputTokens,
-  outputTokens,
-  latencyMs
-}) {
+export async function appendAssistantMessage(
+  context,
+  session,
+  {
+    content,
+    structuredContent,
+    toolCalls,
+    toolResults,
+    model,
+    provider,
+    costMicros,
+    inputTokens,
+    outputTokens,
+    latencyMs,
+  },
+) {
   return appendMessage(context, session, {
     role: "assistant",
     content,
@@ -149,52 +225,96 @@ export async function appendAssistantMessage(context, session, {
     toolCalls,
     toolResults,
     model,
+    provider,
+    costMicros:
+      costMicros === null || costMicros === undefined
+        ? null
+        : global.BigInt(costMicros),
     inputTokens,
     outputTokens,
-    latencyMs
+    latencyMs,
   });
 }
 
-export async function updateCommerceSession(context, sessionId, changes, expectedVersion) {
+export async function updateCommerceSession(
+  context,
+  sessionId,
+  changes,
+  expectedVersion,
+) {
   assertContext(context);
+  const now = new Date();
+  const current = await prisma.commerceSession.findFirst({
+    where: {
+      id: sessionId,
+      shopId: context.shopId,
+      version: expectedVersion,
+      expiresAt: { gt: now },
+    },
+  });
+  if (!current) throw new CommerceSessionConflictError();
+
   const data = toPersistenceChanges(changes);
+  const recoveryState =
+    data.recoveryState || buildRecoveryState(current, data, now);
   const result = await prisma.commerceSession.updateMany({
     where: {
       id: sessionId,
       shopId: context.shopId,
       version: expectedVersion,
-      expiresAt: { gt: new Date() }
+      expiresAt: { gt: new Date() },
     },
     data: {
       ...data,
-      version: { increment: 1 }
-    }
+      recoveryState,
+      lastActivityAt: now,
+      version: { increment: 1 },
+    },
   });
 
   if (result.count !== 1) throw new CommerceSessionConflictError();
   return getCommerceSession(context, sessionId);
 }
 
-export async function applyIntentToCommerceSession(context, session, rawIntent) {
+export async function applyIntentToCommerceSession(
+  context,
+  session,
+  rawIntent,
+) {
   const intent = ShoppingIntentSchema.parse(rawIntent);
   const constraints = mergeConstraints(session.constraints || {}, intent);
   const targetStage = stageForIntent(intent.goal, session.journeyStage);
   assertJourneyTransition(session.journeyStage, targetStage);
 
-  return updateCommerceSession(context, session.id, {
-    structuredIntent: intent,
-    constraints,
-    journeyStage: targetStage
-  }, session.version);
+  return updateCommerceSession(
+    context,
+    session.id,
+    {
+      structuredIntent: intent,
+      constraints,
+      journeyStage: targetStage,
+    },
+    session.version,
+  );
 }
 
-export async function transitionJourneyStage(context, session, nextStage, changes = {}) {
+export async function transitionJourneyStage(
+  context,
+  session,
+  nextStage,
+  changes = {},
+) {
   const parsedStage = JourneyStageSchema.parse(nextStage);
   assertJourneyTransition(session.journeyStage, parsedStage);
-  return updateCommerceSession(context, session.id, {
-    ...changes,
-    journeyStage: parsedStage
-  }, session.version);
+  return updateCommerceSession(
+    context,
+    session.id,
+    {
+      ...changes,
+      journeyStage: parsedStage,
+    },
+    session.version,
+  );
 }
 
 export async function expireCommerceSession(context, session) {
@@ -214,9 +334,9 @@ export async function expireStaleCommerceSessions(now = new Date()) {
     const stale = await tx.commerceSession.findMany({
       where: {
         expiresAt: { lte: now },
-        journeyStage: { notIn: ["COMPLETED", "ABANDONED", "EXPIRED"] }
+        journeyStage: { notIn: ["COMPLETED", "ABANDONED", "EXPIRED"] },
       },
-      select: { id: true, conversationId: true }
+      select: { id: true, conversationId: true },
     });
     if (stale.length === 0) return { count: 0 };
 
@@ -224,11 +344,11 @@ export async function expireStaleCommerceSessions(now = new Date()) {
     const conversationIds = stale.map((item) => item.conversationId);
     await tx.commerceSession.updateMany({
       where: { id: { in: ids } },
-      data: { journeyStage: "EXPIRED", version: { increment: 1 } }
+      data: { journeyStage: "EXPIRED", version: { increment: 1 } },
     });
     await tx.conversation.updateMany({
       where: { id: { in: conversationIds } },
-      data: { status: "EXPIRED", endedAt: now }
+      data: { status: "EXPIRED", endedAt: now },
     });
     return { count: stale.length };
   });
@@ -246,7 +366,7 @@ export function getCommerceContext(session) {
     quantity: session.quantity,
     cartId: session.cartId,
     buyerContext: session.buyerContext,
-    pendingBusinessMessages: session.pendingMessages
+    pendingBusinessMessages: session.pendingMessages,
   };
 }
 
@@ -265,11 +385,19 @@ export function mergeConstraints(previous, intent) {
     ...(previous.budget || {}),
     ...(intent.budget.min !== null ? { min: intent.budget.min } : {}),
     ...(intent.budget.max !== null ? { max: intent.budget.max } : {}),
-    ...(intent.budget.currency !== null ? { currency: intent.budget.currency } : {})
+    ...(intent.budget.currency !== null
+      ? { currency: intent.budget.currency }
+      : {}),
   };
   next.attributes = { ...(previous.attributes || {}), ...intent.attributes };
-  next.preferences = unique([...(previous.preferences || []), ...intent.preferences]);
-  next.exclusions = unique([...(previous.exclusions || []), ...intent.exclusions]);
+  next.preferences = unique([
+    ...(previous.preferences || []),
+    ...intent.preferences,
+  ]);
+  next.exclusions = unique([
+    ...(previous.exclusions || []),
+    ...intent.exclusions,
+  ]);
   return next;
 }
 
@@ -279,15 +407,24 @@ function appendMessage(context, session, data) {
     data: {
       shopId: context.shopId,
       conversationId: session.conversationId,
-      ...data
-    }
+      ...data,
+    },
   });
 }
 
-function createSessionData(context, conversationId, visitorId) {
+function createSessionData(
+  context,
+  conversationId,
+  visitorId,
+  requestedTtlSeconds,
+) {
   const ttlSeconds = Math.max(
-    Number(process.env.COMMERCE_SESSION_TTL_SECONDS || DEFAULT_TTL_SECONDS),
-    300
+    Number(
+      requestedTtlSeconds ||
+        process.env.COMMERCE_SESSION_TTL_SECONDS ||
+        DEFAULT_TTL_SECONDS,
+    ),
+    300,
   );
   return {
     shopId: context.shopId,
@@ -298,30 +435,46 @@ function createSessionData(context, conversationId, visitorId) {
     comparedProducts: [],
     buyerContext: {},
     pendingMessages: [],
-    expiresAt: new Date(Date.now() + ttlSeconds * 1000)
+    expiresAt: new Date(Date.now() + ttlSeconds * 1000),
   };
 }
 
 function toPersistenceChanges(changes) {
   const allowed = [
-    "journeyStage", "structuredIntent", "constraints", "recommendedProducts",
-    "comparedProducts", "selectedProductId", "selectedVariantId", "quantity",
-    "cartId", "checkoutUrl", "buyerContext", "pendingMessages", "expiresAt",
-    "customerId", "visitorId"
+    "journeyStage",
+    "structuredIntent",
+    "constraints",
+    "recommendedProducts",
+    "comparedProducts",
+    "selectedProductId",
+    "selectedVariantId",
+    "quantity",
+    "cartId",
+    "checkoutUrl",
+    "buyerContext",
+    "pendingMessages",
+    "expiresAt",
+    "customerId",
+    "visitorId",
+    "experimentAssignmentId",
+    "recoveryState",
+    "lastActivityAt",
   ];
   return Object.fromEntries(
-    Object.entries(changes).filter(([key, value]) =>
-      allowed.includes(key) && value !== undefined
-    )
+    Object.entries(changes).filter(
+      ([key, value]) => allowed.includes(key) && value !== undefined,
+    ),
   );
 }
 
-function toDomainSession(record, messages = []) {
+function toDomainSession(record, messages = [], { wasRecovered = false } = {}) {
   return {
     id: record.id,
     commerceSessionId: record.id,
     conversationId: record.conversationId,
     sessionId: record.conversationId,
+    visitorId: record.visitorId,
+    customerId: record.customerId,
     journeyStage: record.journeyStage,
     structuredIntent: record.structuredIntent,
     intent: record.structuredIntent,
@@ -337,9 +490,13 @@ function toDomainSession(record, messages = []) {
     buyerContext: record.buyerContext || {},
     pendingMessages: record.pendingMessages || [],
     pendingBusinessMessages: record.pendingMessages || [],
+    experimentAssignmentId: record.experimentAssignmentId,
+    recoveryState: record.recoveryState || null,
+    lastActivityAt: record.lastActivityAt,
+    wasRecovered,
     version: record.version,
     expiresAt: record.expiresAt,
-    messages: formatMessages(messages)
+    messages: formatMessages(messages),
   };
 }
 
@@ -369,7 +526,7 @@ function stageForIntent(goal, currentStage) {
     update_cart: "CONFIRM",
     checkout: currentStage === "CART" ? "CHECKOUT" : currentStage,
     support: currentStage,
-    unknown: currentStage
+    unknown: currentStage,
   };
   return mapping[goal] || currentStage;
 }

@@ -6,12 +6,12 @@
 export const AppConfig = {
   // API Configuration
   api: {
-    defaultModel: 'claude-sonnet-5',
+    defaultModel: "gpt-5.4-mini",
     maxTokens: 2000,
-    defaultPromptType: 'agenticBuyingAssistant',
-    // TEMP DEBUG: safety cap so a stalled Claude stream surfaces as a visible
-    // error instead of infinite typing dots. Remove once root cause is fixed.
-    claudeStreamTimeoutMs: 45000,
+    defaultPromptType: "agenticBuyingAssistant",
+    // Hard cap for every provider request so a stalled stream cannot leave the
+    // storefront in an infinite loading state.
+    llmTimeoutMs: 45000,
   },
 
   // TEMP DEBUG: network timeouts for MCP calls (tools/list, tools/call, and
@@ -25,12 +25,13 @@ export const AppConfig = {
   // Error Message Templates
   errorMessages: {
     missingMessage: "Message is required",
-    apiUnsupported: "This endpoint only supports server-sent events (SSE) requests or history requests.",
+    apiUnsupported:
+      "This endpoint only supports server-sent events (SSE) requests or history requests.",
     authFailed: "Authentication failed with Claude API",
     apiKeyError: "Please check your API key in environment variables",
     rateLimitExceeded: "Rate limit exceeded",
     rateLimitDetails: "Please try again later",
-    genericError: "Failed to get response from Claude"
+    genericError: "Failed to get response from Claude",
   },
 
   // Tool Configuration
@@ -39,8 +40,8 @@ export const AppConfig = {
     policySearchName: "search_shop_policies_and_faqs",
     getCartName: "get_cart",
     updateCartName: "update_cart",
-    maxProductsToDisplay: 3
-  }
+    maxProductsToDisplay: 3,
+  },
 };
 
 export default AppConfig;

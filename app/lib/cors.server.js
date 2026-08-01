@@ -4,7 +4,11 @@
  * logic used by every endpoint the storefront widget calls cross-origin.
  */
 
-import { isShopifyStorefrontOrigin, normalizeStorefrontOrigin } from "../security/shopify-domain.server";
+import {
+  isShopifyStorefrontOrigin,
+  normalizeStorefrontOrigin,
+} from "../security/shopify-domain.server";
+import { resolveRuntimeUrls } from "../config/runtime-urls";
 
 export class CorsOriginError extends Error {
   constructor() {
@@ -28,23 +32,29 @@ export class CorsOriginError extends Error {
  *   Pass null to omit the header entirely.
  * @returns {Object} Headers object suitable for a Response init
  */
-export function buildCorsHeaders(request, {
-  methods = "GET, POST, OPTIONS",
-  allowedHeaders,
-  credentials = false,
-  maxAge = "86400",
-  allowedOrigins = configuredOrigins(),
-  allowShopifyStorefronts = true
-} = {}) {
+export function buildCorsHeaders(
+  request,
+  {
+    methods = "GET, POST, OPTIONS",
+    allowedHeaders,
+    credentials = false,
+    maxAge = "86400",
+    allowedOrigins = configuredOrigins(),
+    allowShopifyStorefronts = true,
+  } = {},
+) {
   const origin = request.headers.get("Origin");
   const headers = {
     "Access-Control-Allow-Methods": methods,
     "Access-Control-Allow-Headers":
       allowedHeaders ?? "Content-Type, Accept, Authorization, X-Request-Id",
-    "Vary": "Origin"
+    Vary: "Origin",
   };
 
-  if (origin && isAllowedOrigin(origin, { allowedOrigins, allowShopifyStorefronts })) {
+  if (
+    origin &&
+    isAllowedOrigin(origin, { allowedOrigins, allowShopifyStorefronts })
+  ) {
     headers["Access-Control-Allow-Origin"] = normalizeStorefrontOrigin(origin);
   }
 
@@ -70,10 +80,10 @@ export function assertAllowedOrigin(request, options = {}) {
   return normalizeStorefrontOrigin(origin);
 }
 
-export function isAllowedOrigin(origin, {
-  allowedOrigins = configuredOrigins(),
-  allowShopifyStorefronts = true
-} = {}) {
+export function isAllowedOrigin(
+  origin,
+  { allowedOrigins = configuredOrigins(), allowShopifyStorefronts = true } = {},
+) {
   let normalized;
   try {
     normalized = normalizeStorefrontOrigin(origin);
@@ -81,20 +91,12 @@ export function isAllowedOrigin(origin, {
     return false;
   }
 
-  return allowedOrigins.includes(normalized) ||
-    (allowShopifyStorefronts && isShopifyStorefrontOrigin(normalized));
+  return (
+    allowedOrigins.includes(normalized) ||
+    (allowShopifyStorefronts && isShopifyStorefrontOrigin(normalized))
+  );
 }
 
 function configuredOrigins() {
-  return (process.env.WIDGET_ALLOWED_ORIGINS || "")
-    .split(",")
-    .map((origin) => origin.trim())
-    .filter(Boolean)
-    .flatMap((origin) => {
-      try {
-        return [normalizeStorefrontOrigin(origin)];
-      } catch (_error) {
-        return [];
-      }
-    });
+  return resolveRuntimeUrls().widgetAllowedOrigins;
 }

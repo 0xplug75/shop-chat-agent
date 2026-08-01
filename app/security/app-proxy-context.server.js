@@ -1,9 +1,19 @@
+import { isIP } from "node:net";
 import { authenticate } from "../shopify.server";
-import { createMerchantRequestContext, getRequestId } from "./merchant-context.server";
-import { normalizeShopDomain, normalizeStorefrontOrigin } from "./shopify-domain.server";
-import { getOrCreateShop } from "../services/shop.server";
+import {
+  createMerchantRequestContext,
+  getRequestId,
+} from "./merchant-context.server";
+import {
+  normalizeShopDomain,
+  normalizeStorefrontOrigin,
+} from "./shopify-domain.server";
+import { getOrCreateShop, getShopByDomain } from "../services/shop.server";
 
-export async function authenticateAppProxyContext(request, { refreshStorefrontOrigin = false } = {}) {
+export async function authenticateAppProxyContext(
+  request,
+  { refreshStorefrontOrigin = false } = {},
+) {
   const proxy = await authenticate.public.appProxy(request);
   if (!proxy.session) {
     throw new Response("Unauthorized", { status: 401 });
@@ -15,19 +25,31 @@ export async function authenticateAppProxyContext(request, { refreshStorefrontOr
     throw new Response("Unauthorized", { status: 401 });
   }
 
+  const existingShop = refreshStorefrontOrigin
+    ? null
+    : await getShopByDomain(shopDomain);
   const storefrontOrigin = refreshStorefrontOrigin
     ? await resolvePrimaryStorefrontOrigin(proxy.admin, shopDomain)
-    : `https://${shopDomain}`;
+    : existingShop?.storefrontOrigin || `https://${shopDomain}`;
   const shop = await getOrCreateShop({ shopDomain, storefrontOrigin });
   const context = createMerchantRequestContext({
     shopId: shop.id,
     shopDomain: shop.shopDomain,
     installationId: proxy.session.id,
     requestId: getRequestId(request),
-    storefrontOrigin: shop.storefrontOrigin || storefrontOrigin
+    storefrontOrigin: shop.storefrontOrigin || storefrontOrigin,
+    networkSubject: getTrustedAppProxyNetworkSubject(request),
   });
 
   return { ...proxy, shop, context };
+}
+
+export function getTrustedAppProxyNetworkSubject(request) {
+  const forwardedFor = request.headers.get("X-Forwarded-For") || "";
+  const clientAddress = forwardedFor.split(",")[0]?.trim();
+  return clientAddress && isIP(clientAddress)
+    ? `app-proxy:${clientAddress}`
+    : undefined;
 }
 
 async function resolvePrimaryStorefrontOrigin(admin, shopDomain) {
@@ -39,7 +61,10 @@ async function resolvePrimaryStorefrontOrigin(admin, shopDomain) {
       }
     `);
     const payload = await response.json();
-    return normalizeStorefrontOrigin(payload.data?.shop?.primaryDomain?.url) || `https://${shopDomain}`;
+    return (
+      normalizeStorefrontOrigin(payload.data?.shop?.primaryDomain?.url) ||
+      `https://${shopDomain}`
+    );
   } catch (_error) {
     return `https://${shopDomain}`;
   }

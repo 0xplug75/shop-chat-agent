@@ -9,7 +9,7 @@ export function SetupStep({
   tone,
   href,
   action,
-  external = false
+  external = false,
 }) {
   return (
     <div className={styles.setupStep}>
@@ -88,5 +88,26 @@ export function JourneyStep({ number, title, body }) {
       <strong>{title}</strong>
       <p>{body}</p>
     </div>
+  );
+}
+
+export function SettingsFeedback({ result }) {
+  if (!result?.message && !result?.error) return null;
+  return (
+    <p
+      className={styles.settingsFeedback}
+      data-tone={result.ok ? "success" : "critical"}
+      role={result.ok ? "status" : "alert"}
+    >
+      {result.message || result.error}
+    </p>
+  );
+}
+
+export function SaveSettingsButton({ submitting }) {
+  return (
+    <button className={styles.saveButton} type="submit" disabled={submitting}>
+      {submitting ? "Saving..." : "Save"}
+    </button>
   );
 }

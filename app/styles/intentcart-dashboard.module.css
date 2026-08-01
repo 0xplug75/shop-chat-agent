@@ -271,6 +271,13 @@
   padding: 14px 20px;
 }
 
+.modeRow > input[type="radio"] {
+  accent-color: var(--ic-primary);
+  height: 16px;
+  margin: 0;
+  width: 16px;
+}
+
 .modeRow + .modeRow {
   border-top: 1px solid var(--ic-border-soft);
 }
@@ -674,6 +681,175 @@
   margin: 4px 0 0;
 }
 
+.settingsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.formFields,
+.formFieldsSubdued,
+.inlineSettings {
+  align-content: start;
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+}
+
+.formFieldsSubdued {
+  background: var(--ic-surface-subdued);
+  border-left: 1px solid var(--ic-border-soft);
+}
+
+.inlineSettings {
+  border-top: 1px solid var(--ic-border-soft);
+}
+
+.field {
+  display: grid;
+  gap: 7px;
+}
+
+.field > span,
+.lockedSetting > span {
+  color: #3f454b;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.field input,
+.field select,
+.field textarea {
+  background: #ffffff;
+  border: 1px solid #abb0b5;
+  border-radius: 6px;
+  box-sizing: border-box;
+  color: var(--ic-ink);
+  font: inherit;
+  font-size: 14px;
+  letter-spacing: 0;
+  min-height: 38px;
+  padding: 8px 10px;
+  width: 100%;
+}
+
+.field textarea {
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  border-color: var(--ic-primary);
+  box-shadow: 0 0 0 1px var(--ic-primary);
+  outline: 0;
+}
+
+.field small,
+.toggleRow small {
+  color: var(--ic-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.checkField,
+.toggleRow {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  gap: 10px;
+}
+
+.checkField {
+  color: #3f454b;
+  font-size: 13px;
+  min-height: 28px;
+}
+
+.checkField input,
+.toggleRow input {
+  accent-color: var(--ic-primary);
+  flex: 0 0 auto;
+  height: 16px;
+  margin: 0;
+  width: 16px;
+}
+
+.toggleRow {
+  justify-content: space-between;
+  padding: 15px 20px;
+}
+
+.toggleRow + .toggleRow,
+.sourceRow + .toggleRow,
+.toggleRow + .sourceRow {
+  border-top: 1px solid var(--ic-border-soft);
+}
+
+.toggleRow > span {
+  display: grid;
+  gap: 4px;
+}
+
+.toggleRow strong {
+  font-size: 14px;
+}
+
+.lockedSetting {
+  background: #f1f2f3;
+  border: 1px solid var(--ic-border);
+  border-radius: 6px;
+  display: grid;
+  gap: 4px;
+  padding: 11px 12px;
+}
+
+.lockedSetting strong {
+  font-size: 13px;
+}
+
+.formActions {
+  align-items: center;
+  border-top: 1px solid var(--ic-border-soft);
+  display: flex;
+  gap: 16px;
+  justify-content: flex-end;
+  min-height: 64px;
+  padding: 12px 20px;
+}
+
+.saveButton {
+  background: #303030;
+  border: 1px solid #303030;
+  border-radius: 6px;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  min-height: 36px;
+  min-width: 76px;
+  padding: 0 14px;
+}
+
+.saveButton:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.settingsFeedback {
+  font-size: 13px;
+  margin: 0 auto 0 0;
+}
+
+.settingsFeedback[data-tone="success"] {
+  color: #137333;
+}
+
+.settingsFeedback[data-tone="critical"] {
+  color: #b42318;
+}
+
 .commerceLayout {
   display: grid;
   grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
@@ -766,15 +942,21 @@
 
   .twoColumn,
   .widgetWorkspace,
-  .commerceLayout {
+  .commerceLayout,
+  .settingsGrid {
     grid-template-columns: 1fr;
   }
 
   .twoColumn > .definitionPanel,
   .widgetSettings,
-  .commerceJourney {
+  .commerceJourney,
+  .formFieldsSubdued {
     border-bottom: 1px solid var(--ic-border-soft);
     border-right: 0;
+  }
+
+  .formFieldsSubdued {
+    border-left: 0;
   }
 }
 
