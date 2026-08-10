@@ -1,6 +1,6 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-client_id = "01ba7b33c8adc70fb904a1a529c99f78"
+client_id = "YOUR_CLIENT_ID"
 name = "IntentCart"
 handle = "intentcart"
 application_url = "https://shop-chat-agent-production-3220.up.railway.app"
