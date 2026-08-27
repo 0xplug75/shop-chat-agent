@@ -74,6 +74,7 @@ export async function loader({ request }) {
       endpoints: {
         chat: `${appProxyPath}/chat`,
         history: `${appProxyPath}/history`,
+        sage: `${appProxyPath}/sage`,
         tokenStatus: `${appProxyPath}/auth/token-status`,
         experimentExposure: `${appProxyPath}/experiment-exposure`,
       },

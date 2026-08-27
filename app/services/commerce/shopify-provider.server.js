@@ -41,7 +41,6 @@ export function createShopifyProvider({
       merchantConfig.shopping.checkoutStrategy === "ucp_handoff" &&
       merchantConfig.shopping.ucp.checkoutEnabled &&
       merchantConfig.shopping.featureFlags.ucpCheckout,
-    checkoutCompleteEnabled: false,
   });
   const ucpCartEnabled =
     merchantConfig.shopping.ucp.cartEnabled &&

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Shopify Live Boundary Check"
+  short_description: "Audit Shopify commerce and security boundaries"
+  default_prompt: "Verify that a Shopify-facing change preserves signed tenant context, Shopify truth, explicit cart confirmation, and safe checkout handoff."

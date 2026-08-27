@@ -1,0 +1,108 @@
+{
+  "kind": "SageInterlabPromotionGate",
+  "version": "1.0",
+  "verifiedAt": "2026-08-08T15:56:36Z",
+  "protocol": {
+    "version": "1.0.0-rc.1",
+    "manifestPath": "app/protocol/sage-interlab/1.0.0-rc.1/RELEASE_MANIFEST.json",
+    "manifestSha256": "2f97927faaed19ec42477b1c93de86d14b7786c1743e84417d59fbb9bfe0652b",
+    "manifestHashMatch": true,
+    "artifactHashMatch": true,
+    "artifactCount": 8,
+    "historicalReadinessFieldsModified": false
+  },
+  "owners": [
+    {
+      "owner": "Catalog Kit",
+      "result": "CATALOG_OWNER_CONFORMANT:true",
+      "accepted": true,
+      "report": {
+        "path": "../labs/catalog-kit-intent-card/docs/reviews/SAGE_INTERLAB_1_0_0_RC1_CATALOG_CONFORMANCE.md",
+        "sha256": "514498a966e8daf604713d48f41fb8fd9bc317aef4a304c32eb566400c230969"
+      },
+      "supportingReport": {
+        "path": "../labs/catalog-kit-intent-card/artifacts/evaluations/CATALOG_INTERLAB_CONFORMANCE_REPORT.json",
+        "sha256": "cecb02d234f5ff9bc8ba87d60be33fcb944cdc3e55bcedaf198993c4acd635c1"
+      },
+      "evidenceLevel": "observed_report_and_machine_result",
+      "localLimit": "fixture_non_live",
+      "liveLimit": "No Noven or Shopify live read-only run was verified"
+    },
+    {
+      "owner": "Hydrogen Experience",
+      "result": "EXPERIENCE_OWNER_CONFORMANT:PASS_LOCAL_CONSUMER",
+      "accepted": true,
+      "report": {
+        "path": "../labs/hydrogen-intent-card/docs/architecture/PROTOCOL_CONFORMANCE_1.0.0-RC.1.md",
+        "sha256": "dd5545bc99de06151d6d069e86a76ec4b7ea6c31ca244339cfcaaea9592e3fbf"
+      },
+      "evidenceLevel": "user_provided_handoff_correlated_with_observed_report",
+      "handoffLiteralPresentInAccessibleReport": false,
+      "localLimit": "local consumer architecture only",
+      "liveLimit": "No deployed Hydrogen consumer was verified"
+    },
+    {
+      "owner": "Shopify Commerce",
+      "result": "COMMERCE_OWNER_CONFORMANT:true",
+      "accepted": true,
+      "report": {
+        "path": "docs/conformance/SHOPIFY_COMMERCE_CONFORMANCE_1.0.0_RC1.md",
+        "sha256": "da1799352e996ae2457d30c5f98a6b2eda24a051848e24da8abc945ebe1eb337"
+      },
+      "evidenceLevel": "observed_code_and_executed_local_tests",
+      "localLimit": "deterministic providers; PostgreSQL suite skipped",
+      "liveLimit": "No live Shopify cart mutation or checkout handoff was executed"
+    }
+  ],
+  "evidence": {
+    "frozenFixture": {
+      "path": "app/protocol/sage-interlab/1.0.0-rc.1/fixtures/runtime-boundaries.json",
+      "sha256": "3d4cea1d382efbe9428fb426c4ffcb12ce88206aa16cd655ea9f3d4cf02f63ce",
+      "result": "45/45"
+    },
+    "commerceStatuses": {
+      "expected": 13,
+      "validated": 13
+    },
+    "commands": [
+      {
+        "command": "npm test",
+        "result": "pass",
+        "details": "22 test files passed, 1 skipped; 139 tests passed, 8 PostgreSQL tests skipped"
+      },
+      {
+        "command": "npm run lint",
+        "result": "pass"
+      },
+      {
+        "command": "npm run typecheck",
+        "result": "pass"
+      },
+      {
+        "command": "npm run build",
+        "result": "pass",
+        "details": "React Router client and SSR builds include widget.sage"
+      }
+    ],
+    "networkUsedForConformance": false,
+    "remoteCommerceMutationUsed": false,
+    "deploymentPerformed": false
+  },
+  "decisions": {
+    "threeOwnerConformance": true,
+    "promotionGateCreated": true,
+    "canonicalContractModuleAllowed": true,
+    "demoLocalIntegrationAllowed": true,
+    "liveCatalogAllowed": false,
+    "liveCommerceAllowed": false,
+    "vercelPreviewAllowed": false,
+    "productionAllowed": false
+  },
+  "blockers": [
+    "Hydrogen owner handoff literal is not present in the accessible report; its result is accepted from the supplied owner handoff context and correlated report",
+    "No live Noven or Shopify read-only catalog proof",
+    "No authorized live Shopify cart and checkout proof",
+    "TEST_DATABASE_URL is unset, so 8 PostgreSQL integration tests were skipped",
+    "No preview deployment or deployed SHA verification"
+  ]
+}

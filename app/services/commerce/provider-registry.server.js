@@ -41,7 +41,6 @@ export function createCommerceProvider({
         checkoutEnabled:
           merchantConfig.shopping.checkoutStrategy === "ucp_handoff" &&
           merchantConfig.shopping.ucp.checkoutEnabled,
-        checkoutCompleteEnabled: false,
       }),
     );
   }

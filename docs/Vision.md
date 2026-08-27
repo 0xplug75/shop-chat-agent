@@ -4,6 +4,11 @@
 
 Every roadmap decision, every "should this feature exist" conversation, needs a fixed reference point that doesn't drift with whatever shipped last sprint. This document is that reference point. It answers *why IntentCart exists* and *what it refuses to become*, independent of implementation status — for the system's current expression in code, see [Architecture.md](./Architecture.md) and [Roadmap.md](./Roadmap.md).
 
+The canonical market problem, entry category, validation ICP, brand promise, and
+message hierarchy are frozen in [Positioning.md](./Positioning.md). This vision
+describes the long-term system destination; the positioning document governs
+how the current product is researched, described, and sold.
+
 If a feature request can't be justified against this document, it doesn't ship, regardless of how easy it is to build.
 
 ## What IntentCart is not
@@ -69,7 +74,18 @@ The LLM must never invent commerce facts — price, stock, variants, shipping, p
 
 ## Positioning
 
-The category is **"AI Commerce Operating Layer,"** not "AI chatbot for Shopify." A chatbot is a feature a merchant turns on. An operating layer is infrastructure a merchant's commerce operation runs through — the same way Klaviyo isn't "an email feature" for merchants who depend on it, it's the retention system. IntentCart earns that status only if the Commerce Session becomes the substrate every commerce interaction — chat, quiz, PDP assistant, cart assistant — flows through, and only if the Merchant Console (see [MerchantConsole.md](./MerchantConsole.md)) becomes as indispensable for configuring AI-native commerce as Klaviyo is for configuring email.
+The focused entry category is **"Agentic guided selling for Shopify,"** not "AI
+chatbot for Shopify." The initial product is a decision layer between shopper
+intent and the Shopify catalog. Its locked promise is: **"Turn your Shopify store
+into an agentic shopping experience."** See [Positioning.md](./Positioning.md) for
+the complete canonical language and validation ICP.
+
+The long-term category ambition remains **"AI Commerce Operating Layer."** An
+operating layer is infrastructure a merchant's commerce operation runs through —
+the same way Klaviyo isn't merely an email feature for merchants who depend on
+it, but the retention system. IntentCart earns that status only after guided
+selling proves measurable value and the Commerce Session becomes the substrate
+that chat, quiz, PDP assistance, cart assistance, and future surfaces share.
 
 ## What we will not build
 

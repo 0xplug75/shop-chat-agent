@@ -1,0 +1,122 @@
+{
+  "schema_version": "1.0",
+  "lab": "shop-chat-agent-work",
+  "identity": "Shopify distribution surface and production-runtime candidate for IntentCart",
+  "vision": "Sage recommends. Shopify transacts.",
+  "current_scope": "Install and render the IntentCart experience on Shopify without moving business logic into the theme",
+  "fixed_admin_navigation": [
+    "Home",
+    "Assistant",
+    "Widget",
+    "Knowledge",
+    "Commerce"
+  ],
+  "runtime": {
+    "admin_framework": "React Router embedded Shopify app",
+    "persistence": "Prisma with PostgreSQL",
+    "storefront_surface": "Shopify Theme App Extension app embed",
+    "public_boundary": "Signed App Proxy plus short-lived widget token",
+    "catalog_authority": "Shopify",
+    "cart_authority": "Shopify through server adapters",
+    "checkout": "Validated Shopify handoff",
+    "deployment_evidence": "Healthy Railway endpoints observed; deployed revision unknown"
+  },
+  "authorities": {
+    "intent_clarification_ranking": "IntentCart runtime",
+    "products_variants_price_stock": "Shopify",
+    "cart_checkout_transaction": "Shopify",
+    "storefront_appearance": "Shopify Theme Editor",
+    "merchant_behavior_guardrails": "IntentCart Admin and runtime",
+    "presentation": "Theme App Extension"
+  },
+  "capabilities": [
+    {
+      "name": "embedded_admin_five_pages",
+      "status": "working_local"
+    },
+    {
+      "name": "theme_app_embed",
+      "status": "working_local_live_activation_unverified"
+    },
+    {
+      "name": "signed_app_proxy_context",
+      "status": "working_local"
+    },
+    {
+      "name": "short_lived_widget_token",
+      "status": "working_local"
+    },
+    {
+      "name": "oauth_offline_session_rotation",
+      "status": "working_local_live_lifecycle_unverified"
+    },
+    {
+      "name": "tenant_isolation",
+      "status": "working_local_postgresql"
+    },
+    {
+      "name": "explicit_cart_confirmation_and_idempotence",
+      "status": "working_local_live_mutation_unverified"
+    },
+    {
+      "name": "validated_shopify_checkout_handoff",
+      "status": "working_local_completion_unverified"
+    },
+    {
+      "name": "closed_on_initial_load",
+      "status": "partial_automatic_open_paths_exist"
+    },
+    {
+      "name": "theme_editor_single_ownership",
+      "status": "partial_admin_overlap_exists"
+    },
+    {
+      "name": "shopify_cli",
+      "status": "working_local_version_3_93_2"
+    },
+    {
+      "name": "live_two_store_e2e",
+      "status": "unverified"
+    }
+  ],
+  "agents": [
+    "shopify_surface_explorer",
+    "shopify_surface_builder",
+    "shopify_surface_reviewer"
+  ],
+  "skills": [
+    "theme-app-extension-workflow",
+    "shopify-live-boundary-check"
+  ],
+  "hard_boundaries": [
+    "No intent or ranking logic in Liquid",
+    "No storefront-owned commerce decision",
+    "No cart mutation before exact confirmation",
+    "No Theme Editor appearance setting duplicated in Admin",
+    "No automatic widget opening",
+    "No additional primary Admin page",
+    "No OAuth scope change during surface work",
+    "No deployment or credential access without explicit approval",
+    "No fixture fallback disguised as live data"
+  ],
+  "promotion_gates": [
+    "Shopify CLI and Node runtime are pinned and reproducible",
+    "Canonical app configuration is reconciled",
+    "Widget is closed on every initial-load path",
+    "Theme Editor is the single owner of storefront appearance",
+    "Two-store install uninstall reinstall and isolation are verified",
+    "Live search comparison variant confirmation cart and checkout handoff are verified",
+    "Mobile accessibility and representative theme checks pass",
+    "Deployment revision migrations rollback and backup restore are verified"
+  ],
+  "entrypoints": {
+    "instructions": "AGENTS.md",
+    "role": "docs/agent-system/LAB_ROLE.md",
+    "capabilities": "docs/agent-system/LAB_CAPABILITY_REPORT.md",
+    "promotion": "docs/agent-system/LAB_PROMOTION_MANIFEST.md",
+    "validation": "docs/agent-system/VALIDATION_REPORT.md",
+    "shopify_config": "shopify.app.toml",
+    "theme_embed": "extensions/chat-bubble/blocks/chat-interface.liquid",
+    "storefront_runtime": "extensions/chat-bubble/assets/chat.js"
+  }
+}

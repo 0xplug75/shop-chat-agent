@@ -1,0 +1,406 @@
+{
+  "fixtureVersion": "0.4.1",
+  "label": "synthetic_contract_fixture_non_live",
+  "referenceTime": "2026-08-08T12:02:00.000Z",
+  "decisionExperienceInput": {
+    "kind": "DecisionExperienceInput",
+    "version": "1.0",
+    "decisionId": "decision:fixture:001",
+    "stateRevision": 7,
+    "decisionType": "recommendation",
+    "messageIntent": "present_shortlist",
+    "recommendations": {
+      "decisionId": "decision:fixture:001",
+      "stateRevision": 7,
+      "products": [
+        {
+          "productRef": "product:fixture:001",
+          "needMatched": ["Hydratation déclarée"],
+          "confirmedCriteriaUsed": ["criteria:hydration", "criteria:budget"],
+          "whyCodes": ["GOAL_MATCH", "BUDGET_MATCH"],
+          "tradeoffs": ["Texture non confirmée"],
+          "limits": ["Disponibilité à revalider"],
+          "evidenceRefs": ["evidence:fixture:001"],
+          "provenanceRefs": ["provenance:fixture:001"],
+          "allowedNextActions": ["action:select:001", "action:cart:001"]
+        },
+        {
+          "productRef": "product:fixture:002",
+          "needMatched": ["Budget déclaré"],
+          "confirmedCriteriaUsed": ["criteria:budget"],
+          "whyCodes": ["BUDGET_MATCH"],
+          "tradeoffs": ["Bénéfice secondaire non documenté"],
+          "limits": ["Disponibilité à revalider"],
+          "evidenceRefs": ["evidence:fixture:002"],
+          "provenanceRefs": ["provenance:fixture:002"],
+          "allowedNextActions": ["action:select:002"]
+        }
+      ],
+      "selectionRationale": ["Deux compromis distincts et documentés"],
+      "omittedCandidateReasons": []
+    },
+    "systemConfidence": {
+      "band": "STRONG",
+      "intentSufficiency": "usable",
+      "constraintCoverage": "complete",
+      "evidenceCoverage": "sufficient",
+      "rankingStability": "stable",
+      "sourceFreshness": "acceptable",
+      "calibrated": false,
+      "warnings": []
+    },
+    "shopperConfidence": {
+      "band": "UNKNOWN",
+      "evidence": "none",
+      "inferredFromBehaviorOnly": false,
+      "nextSupport": ["NONE"]
+    },
+    "allowedNextActions": [
+      {
+        "actionId": "action:select:001",
+        "actionType": "select_product",
+        "targetRef": "product:fixture:001"
+      },
+      {
+        "actionId": "action:select:002",
+        "actionType": "select_product",
+        "targetRef": "product:fixture:002"
+      },
+      {
+        "actionId": "action:cart:001",
+        "actionType": "request_cart_add",
+        "targetRef": "handoff:fixture:001"
+      }
+    ],
+    "disclosures": ["Recommandations issues de règles heuristiques non calibrées"]
+  },
+  "experienceActionRequest": {
+    "kind": "ExperienceActionRequest",
+    "version": "1.0",
+    "decisionId": "decision:fixture:001",
+    "stateRevision": 7,
+    "actionId": "action:select:001",
+    "actionType": "select_product",
+    "arguments": {
+      "productRef": "product:fixture:001"
+    }
+  },
+  "commerceActionRequest": {
+    "kind": "ExperienceActionRequest",
+    "version": "1.0",
+    "decisionId": "decision:fixture:001",
+    "stateRevision": 7,
+    "actionId": "action:cart:001",
+    "actionType": "request_cart_add",
+    "arguments": {
+      "handoffRef": "handoff:fixture:001"
+    }
+  },
+  "commerceIntentHandoff": {
+    "kind": "CommerceIntentHandoff",
+    "version": "1.1",
+    "handoffId": "handoff:fixture:001",
+    "decisionId": "decision:fixture:001",
+    "stateRevision": 7,
+    "correlationId": "correlation:fixture:001",
+    "causationId": "action:cart:001",
+    "issuedAt": "2026-08-08T12:00:00.000Z",
+    "expiresAt": "2026-08-08T12:05:00.000Z",
+    "selectedProductRef": {
+      "kind": "ProductReference",
+      "version": "0.1-candidate",
+      "productId": "product:fixture:001",
+      "sourceRef": "catalog:fixture:001"
+    },
+    "selectedOptionPreferences": [
+      {
+        "optionName": "Format",
+        "preferredValue": "50 ml"
+      }
+    ],
+    "shopperActionIntent": "request_cart_add",
+    "marketRef": "market:fr-eur",
+    "evidenceSnapshotRefs": ["snapshot:fixture:001"],
+    "unresolvedCommerceInputs": ["variant", "quantity", "availability"]
+  },
+  "commerceResultEnvelopes": [
+    {
+      "kind": "CommerceResultEnvelope",
+      "version": "1.0",
+      "resultId": "result:denied",
+      "handoffId": "handoff:fixture:001",
+      "correlationId": "correlation:fixture:001",
+      "occurredAt": "2026-08-08T12:02:00.000Z",
+      "result": { "status": "denied", "safeReasonCode": "PERMISSION_DENIED" }
+    },
+    {
+      "kind": "CommerceResultEnvelope",
+      "version": "1.0",
+      "resultId": "result:confirmation-required",
+      "handoffId": "handoff:fixture:001",
+      "correlationId": "correlation:fixture:001",
+      "occurredAt": "2026-08-08T12:02:00.000Z",
+      "result": {
+        "status": "confirmation_required",
+        "receipt": {
+          "kind": "CommerceConfirmationReceipt",
+          "version": "1.0",
+          "confirmationId": "confirmation:fixture:001",
+          "handoffId": "handoff:fixture:001",
+          "permissionDecisionId": "permission:fixture:001",
+          "stateRevision": 7,
+          "action": "request_cart_add",
+          "candidate": {
+            "productRef": {
+              "kind": "ProductReference",
+              "version": "0.1-candidate",
+              "productId": "product:fixture:001",
+              "sourceRef": "catalog:fixture:001"
+            },
+            "variantRef": "variant:fixture:001",
+            "quantity": 1,
+            "unitPrice": { "amountMinor": 2400, "currency": "EUR" }
+          },
+          "commerceSnapshotRef": "commerce-snapshot:fixture:001",
+          "cartRef": "cart:fixture:001",
+          "cartVersion": "cart-version:001",
+          "argumentDigest": "digest:fixture:001",
+          "issuedAt": "2026-08-08T12:02:00.000Z",
+          "expiresAt": "2026-08-08T12:04:00.000Z",
+          "singleUse": true
+        }
+      }
+    },
+    {
+      "kind": "CommerceResultEnvelope",
+      "version": "1.0",
+      "resultId": "result:confirmation-declined",
+      "handoffId": "handoff:fixture:001",
+      "correlationId": "correlation:fixture:001",
+      "occurredAt": "2026-08-08T12:02:00.000Z",
+      "result": { "status": "confirmation_declined" }
+    },
+    {
+      "kind": "CommerceResultEnvelope",
+      "version": "1.0",
+      "resultId": "result:confirmation-expired",
+      "handoffId": "handoff:fixture:001",
+      "correlationId": "correlation:fixture:001",
+      "occurredAt": "2026-08-08T12:02:00.000Z",
+      "result": { "status": "confirmation_expired" }
+    },
+    {
+      "kind": "CommerceResultEnvelope",
+      "version": "1.0",
+      "resultId": "result:stale-state",
+      "handoffId": "handoff:fixture:001",
+      "correlationId": "correlation:fixture:001",
+      "occurredAt": "2026-08-08T12:02:00.000Z",
+      "result": { "status": "stale_state", "expectedRevision": 8 }
+    },
+    {
+      "kind": "CommerceResultEnvelope",
+      "version": "1.0",
+      "resultId": "result:stale-cart",
+      "handoffId": "handoff:fixture:001",
+      "correlationId": "correlation:fixture:001",
+      "occurredAt": "2026-08-08T12:02:00.000Z",
+      "result": { "status": "stale_cart", "currentCartVersion": "cart-version:002" }
+    },
+    {
+      "kind": "CommerceResultEnvelope",
+      "version": "1.0",
+      "resultId": "result:invalid-variant",
+      "handoffId": "handoff:fixture:001",
+      "correlationId": "correlation:fixture:001",
+      "occurredAt": "2026-08-08T12:02:00.000Z",
+      "result": { "status": "invalid_variant", "safeReasonCode": "VARIANT_NOT_AVAILABLE" }
+    },
+    {
+      "kind": "CommerceResultEnvelope",
+      "version": "1.0",
+      "resultId": "result:invalid-quantity",
+      "handoffId": "handoff:fixture:001",
+      "correlationId": "correlation:fixture:001",
+      "occurredAt": "2026-08-08T12:02:00.000Z",
+      "result": { "status": "invalid_quantity", "safeReasonCode": "QUANTITY_OUT_OF_RANGE" }
+    },
+    {
+      "kind": "CommerceResultEnvelope",
+      "version": "1.0",
+      "resultId": "result:price-changed",
+      "handoffId": "handoff:fixture:001",
+      "correlationId": "correlation:fixture:001",
+      "occurredAt": "2026-08-08T12:02:00.000Z",
+      "result": { "status": "price_changed", "currentUnitPrice": { "amountMinor": 2600, "currency": "EUR" } }
+    },
+    {
+      "kind": "CommerceResultEnvelope",
+      "version": "1.0",
+      "resultId": "result:unavailable",
+      "handoffId": "handoff:fixture:001",
+      "correlationId": "correlation:fixture:001",
+      "occurredAt": "2026-08-08T12:02:00.000Z",
+      "result": { "status": "unavailable", "safeReasonCode": "OUT_OF_STOCK" }
+    },
+    {
+      "kind": "CommerceResultEnvelope",
+      "version": "1.0",
+      "resultId": "result:failed-before-mutation",
+      "handoffId": "handoff:fixture:001",
+      "correlationId": "correlation:fixture:001",
+      "occurredAt": "2026-08-08T12:02:00.000Z",
+      "result": { "status": "failed_before_mutation", "safeReasonCode": "PROVIDER_UNAVAILABLE" }
+    },
+    {
+      "kind": "CommerceResultEnvelope",
+      "version": "1.0",
+      "resultId": "result:outcome-unknown",
+      "handoffId": "handoff:fixture:001",
+      "correlationId": "correlation:fixture:001",
+      "occurredAt": "2026-08-08T12:02:00.000Z",
+      "result": { "status": "outcome_unknown", "mutationRef": "mutation:fixture:001", "recovery": "reconcile" }
+    },
+    {
+      "kind": "CommerceResultEnvelope",
+      "version": "1.0",
+      "resultId": "result:succeeded",
+      "handoffId": "handoff:fixture:001",
+      "correlationId": "correlation:fixture:001",
+      "occurredAt": "2026-08-08T12:02:00.000Z",
+      "result": {
+        "status": "succeeded_authoritative",
+        "mutationRef": "mutation:fixture:002",
+        "commerceStateRef": "commerce-state:fixture:001",
+        "cartVersion": "cart-version:003",
+        "authorityRef": "shopify:fixture:authoritative",
+        "observedAt": "2026-08-08T12:02:00.000Z"
+      }
+    }
+  ],
+  "expectedOutcomeByStatus": {
+    "denied": "no_mutation",
+    "confirmation_required": "confirmation_pending",
+    "confirmation_declined": "no_mutation",
+    "confirmation_expired": "no_mutation",
+    "stale_state": "no_mutation",
+    "stale_cart": "no_mutation",
+    "invalid_variant": "no_mutation",
+    "invalid_quantity": "no_mutation",
+    "price_changed": "no_mutation",
+    "unavailable": "no_mutation",
+    "failed_before_mutation": "mutation_failed",
+    "outcome_unknown": "mutation_unknown",
+    "succeeded_authoritative": "mutation_succeeded"
+  },
+  "negativeCases": [
+    {
+      "id": "decision-visible-fit-score",
+      "validator": "DecisionExperienceInput",
+      "base": "decisionExperienceInput",
+      "mutations": [{ "operation": "set", "path": "recommendations.products.0.fit", "value": 94 }],
+      "expectedCode": "UNKNOWN_FIELD"
+    },
+    {
+      "id": "decision-strong-with-partial-evidence",
+      "validator": "DecisionExperienceInput",
+      "base": "decisionExperienceInput",
+      "mutations": [{ "operation": "set", "path": "systemConfidence.evidenceCoverage", "value": "partial" }],
+      "expectedCode": "STRONG_CONFIDENCE_UNSUPPORTED"
+    },
+    {
+      "id": "action-not-allowed",
+      "validator": "AuthorizedExperienceAction",
+      "base": "experienceActionRequest",
+      "contextBase": "decisionExperienceInput",
+      "mutations": [{ "operation": "set", "path": "actionId", "value": "action:unknown" }],
+      "expectedCode": "ACTION_NOT_ALLOWED"
+    },
+    {
+      "id": "action-stale-revision",
+      "validator": "AuthorizedExperienceAction",
+      "base": "experienceActionRequest",
+      "contextBase": "decisionExperienceInput",
+      "mutations": [{ "operation": "set", "path": "stateRevision", "value": 6 }],
+      "expectedCode": "STALE_STATE_REVISION"
+    },
+    {
+      "id": "handoff-authoritative-variant",
+      "validator": "CommerceIntentHandoff",
+      "base": "commerceIntentHandoff",
+      "mutations": [{ "operation": "set", "path": "variantId", "value": "variant:forbidden" }],
+      "expectedCode": "UNKNOWN_FIELD"
+    },
+    {
+      "id": "handoff-expired",
+      "validator": "CommerceIntentHandoff",
+      "base": "commerceIntentHandoff",
+      "options": { "now": "2026-08-08T12:05:00.000Z" },
+      "mutations": [],
+      "expectedCode": "HANDOFF_EXPIRED"
+    },
+    {
+      "id": "handoff-ttl-too-long",
+      "validator": "CommerceIntentHandoff",
+      "base": "commerceIntentHandoff",
+      "mutations": [{ "operation": "set", "path": "expiresAt", "value": "2026-08-08T12:05:01.000Z" }],
+      "expectedCode": "HANDOFF_TTL_EXCEEDED"
+    },
+    {
+      "id": "handoff-quantity-not-left-to-commerce",
+      "validator": "CommerceIntentHandoff",
+      "base": "commerceIntentHandoff",
+      "mutations": [{ "operation": "set", "path": "unresolvedCommerceInputs", "value": ["variant", "availability"] }],
+      "expectedCode": "COMMERCE_INPUT_MUST_REMAIN_UNRESOLVED"
+    },
+    {
+      "id": "handoff-complete-checkout-forbidden",
+      "validator": "CommerceIntentHandoff",
+      "base": "commerceIntentHandoff",
+      "mutations": [{ "operation": "set", "path": "shopperActionIntent", "value": "complete_checkout" }],
+      "expectedCode": "INVALID_SHOPPER_ACTION_INTENT"
+    },
+    {
+      "id": "handoff-transcript-forbidden",
+      "validator": "CommerceIntentHandoff",
+      "base": "commerceIntentHandoff",
+      "mutations": [{ "operation": "set", "path": "transcript", "value": "synthetic-placeholder" }],
+      "expectedCode": "PRIVATE_OR_AUTHORITATIVE_FIELD_FORBIDDEN"
+    },
+    {
+      "id": "success-without-authority",
+      "validator": "CommerceResultEnvelope",
+      "base": "commerceResultEnvelopes.succeeded_authoritative",
+      "mutations": [{ "operation": "delete", "path": "result.authorityRef" }],
+      "expectedCode": "INVALID_OPAQUE_REFERENCE"
+    },
+    {
+      "id": "unknown-outcome-with-retry",
+      "validator": "CommerceResultEnvelope",
+      "base": "commerceResultEnvelopes.outcome_unknown",
+      "mutations": [{ "operation": "set", "path": "result.recovery", "value": "retry" }],
+      "expectedCode": "RECONCILIATION_REQUIRED"
+    },
+    {
+      "id": "provider-payload-leak",
+      "validator": "CommerceResultEnvelope",
+      "base": "commerceResultEnvelopes.denied",
+      "mutations": [{ "operation": "set", "path": "result.providerPayload", "value": "synthetic-placeholder" }],
+      "expectedCode": "PRIVATE_OR_AUTHORITATIVE_FIELD_FORBIDDEN"
+    },
+    {
+      "id": "confirmation-not-single-use",
+      "validator": "CommerceResultEnvelope",
+      "base": "commerceResultEnvelopes.confirmation_required",
+      "mutations": [{ "operation": "set", "path": "result.receipt.singleUse", "value": false }],
+      "expectedCode": "SINGLE_USE_REQUIRED"
+    },
+    {
+      "id": "outcome-event-leaks-mutation-reference",
+      "validator": "CommerceOutcomeEvent",
+      "base": "derivedOutcomeEvents.succeeded_authoritative",
+      "mutations": [{ "operation": "set", "path": "mutationRef", "value": "mutation:forbidden" }],
+      "expectedCode": "PRIVATE_OR_AUTHORITATIVE_FIELD_FORBIDDEN"
+    }
+  ]
+}

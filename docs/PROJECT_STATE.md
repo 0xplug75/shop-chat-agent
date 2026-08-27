@@ -1,5 +1,15 @@
 # IntentCart
 
+## Canonical positioning (2026-07-31)
+
+The product and brand foundation for the validation phase is frozen in
+`docs/Positioning.md`. The entry category is agentic guided selling for Shopify;
+the core problem is the intent-to-catalog gap; the initial validation beachhead
+is functional-skincare Shopify DTC; and the locked promise is “Turn your Shopify
+store into an agentic shopping experience.” Exact ICP thresholds, willingness to
+pay, conversion lift, and final pricing remain hypotheses rather than product
+facts.
+
 ## Architecture baseline (2026-07-31)
 
 The security and persistence foundation now uses a signed Shopify App Proxy

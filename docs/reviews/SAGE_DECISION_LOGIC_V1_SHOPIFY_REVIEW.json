@@ -1,0 +1,574 @@
+{
+  "schema_version": "1.0",
+  "review_date": "2026-08-08",
+  "reviewer": "IntentCart Shopify",
+  "lab": "Intent Card_SHOPIFY",
+  "review_type": "read_only_architecture_review",
+  "draft_version": "0.3.0-catalog-resolved",
+  "repository": {
+    "name": "shop-chat-agent-work",
+    "root": ".",
+    "branch": "codex/intentcart-admin-freeze",
+    "head": "ff99924c26bb1da08c43451852fee1c618dddfc6",
+    "worktree_preexisting_changes_preserved": true
+  },
+  "principle": "Sage recommends. Shopify transacts.",
+  "sources": [
+    {
+      "path": "../labs/magpie-intent-finder/docs/decision-logic/SAGE_DECISION_LOGIC_V1_DRAFT.md",
+      "role": "reviewed draft",
+      "modified": false
+    },
+    {
+      "path": "../labs/magpie-intent-finder/docs/decision-logic/SAGE_DECISION_LOGIC_V1_REVIEW_PROTOCOL.md",
+      "role": "review protocol",
+      "modified": false
+    },
+    {
+      "path": "../labs/magpie-intent-finder/docs/decision-logic/reviews/CATALOG_KIT_RESOLUTION_LOG.md",
+      "role": "catalog ownership resolution",
+      "modified": false
+    },
+    {
+      "path": "../labs/magpie-intent-finder/docs/decision-logic/SAGE_DECISION_LOGIC_V0_3_CHANGE_PROPOSAL.md",
+      "role": "0.3 change proposal",
+      "modified": false
+    },
+    {
+      "path": "../labs/magpie-intent-finder/docs/agent-system/LAB_MINI_ME.json",
+      "role": "Magpie boundaries and maturity",
+      "modified": false
+    }
+  ],
+  "inspected_runtime_files": [
+    "app/contracts/commerce.schemas.server.js",
+    "app/services/commerce-orchestrator.server.js",
+    "app/services/tool-registry.server.js",
+    "app/services/commerce-session.server.js",
+    "app/services/commerce-mutation.server.js",
+    "app/services/commerce/ucp-provider.server.js",
+    "app/services/commerce/ucp-client.server.js",
+    "app/services/llm-gateway.server.js",
+    "app/services/experience-document.server.js",
+    "app/services/analytics-event.server.js",
+    "prisma/schema.prisma"
+  ],
+  "ownership": [
+    {
+      "subject": "cart",
+      "owner": "Commerce Runtime and Shopify",
+      "observed": "CommerceSession stores cartId and a snapshot; provider owns reads and writes",
+      "evidence": [
+        "prisma/schema.prisma:242-279",
+        "app/services/tool-registry.server.js:406-435"
+      ],
+      "status": "partial"
+    },
+    {
+      "subject": "cartVersion",
+      "owner": "Commerce Runtime from authoritative provider",
+      "observed": "No cartVersion exists; CommerceSession.version is only a session revision",
+      "evidence": [
+        "app/services/commerce-session.server.js:239-276",
+        "prisma/schema.prisma:242-279"
+      ],
+      "status": "missing"
+    },
+    {
+      "subject": "variant_and_quantity",
+      "owner": "Commerce Runtime",
+      "observed": "PurchaseCandidate and exact confirmation own selection, but freshness is not revalidated live",
+      "evidence": [
+        "app/contracts/commerce.schemas.server.js:357-368",
+        "app/services/tool-registry.server.js:316-370"
+      ],
+      "status": "partial"
+    },
+    {
+      "subject": "permission",
+      "owner": "Commerce Runtime",
+      "observed": "No versioned permission.check service or contract was found",
+      "evidence": [
+        "../labs/magpie-intent-finder/docs/decision-logic/SAGE_DECISION_LOGIC_V1_DRAFT.md:2331-2340"
+      ],
+      "status": "missing"
+    },
+    {
+      "subject": "confirmation",
+      "owner": "Commerce Runtime",
+      "observed": "Exact product, variant and quantity are checked; expiry and commerce snapshot binding are absent",
+      "evidence": [
+        "app/services/commerce-orchestrator.server.js:479-508",
+        "app/services/tool-registry.server.js:530-550"
+      ],
+      "status": "partial"
+    },
+    {
+      "subject": "idempotence",
+      "owner": "Commerce Runtime",
+      "observed": "Durable journal and tenant-scoped uniqueness exist; UCP propagation is incomplete",
+      "evidence": [
+        "app/services/commerce-mutation.server.js:83-249",
+        "prisma/schema.prisma:281-305",
+        "app/services/commerce/ucp-provider.server.js:141-169"
+      ],
+      "status": "working_with_limitations"
+    },
+    {
+      "subject": "price_stock_revalidation",
+      "owner": "Commerce Runtime and Shopify",
+      "observed": "The current update_cart gate reads only the session recommendation snapshot",
+      "evidence": [
+        "app/services/tool-registry.server.js:288-307"
+      ],
+      "status": "missing"
+    },
+    {
+      "subject": "authoritative_result",
+      "owner": "Commerce Runtime and Shopify",
+      "observed": "Provider result is journaled before return, but no exhaustive result union or reconciler exists",
+      "evidence": [
+        "app/services/commerce-mutation.server.js:205-248",
+        "app/services/experience-document.server.js:54-59"
+      ],
+      "status": "partial"
+    }
+  ],
+  "handoff_assessment": {
+    "serializable": true,
+    "contains_obvious_pii_or_secret_fields": false,
+    "is_intent_not_mutation_command": "partial",
+    "reason": "buy_candidate is semantically ambiguous and can be read as an execution command",
+    "must_not_contain": [
+      "authoritative variantId",
+      "quantity",
+      "price",
+      "stock",
+      "cartId",
+      "cartVersion",
+      "permission",
+      "confirmation",
+      "success",
+      "PII",
+      "secret",
+      "signed URL",
+      "raw provider payload"
+    ],
+    "missing_fields": [
+      "issuedAt",
+      "expiresAt",
+      "correlationId",
+      "causationId",
+      "containsPII=false",
+      "containsSecret=false"
+    ],
+    "proposed_version": "1.1",
+    "owner": {
+      "producer": "MAGPIE",
+      "validator_and_consumer": "Commerce Runtime"
+    }
+  },
+  "action_matrix": [
+    {
+      "action": "check_availability",
+      "permission": "tenant, read capability, merchant policy",
+      "confirmation": "not_required",
+      "revalidation": "current product, market, variant, price and availability",
+      "execution": "provider read only",
+      "result": "authoritative snapshot or typed error"
+    },
+    {
+      "action": "prepare_cart_candidate",
+      "permission": "tenant, selection capability, merchant policy",
+      "confirmation": "produces an expiring confirmation receipt",
+      "revalidation": "resolve variant, quantity, price, stock and cart snapshot",
+      "execution": "no mutation",
+      "result": "confirmation_required"
+    },
+    {
+      "action": "request_cart_add",
+      "permission": "cart.write allowed for tenant, actor, channel and policy version",
+      "confirmation": "exact, explicit, unexpired and snapshot-bound",
+      "revalidation": "stateRevision, cartVersion, variant, quantity, price and stock immediately before mutation",
+      "execution": "durable journal then provider with one propagated idempotency key",
+      "result": "authoritative success, failed_before_mutation or outcome_unknown"
+    },
+    {
+      "action": "request_checkout_handoff",
+      "permission": "checkout capability and merchant policy",
+      "confirmation": "required for checkout create or update; policy-defined for safe existing handoff",
+      "revalidation": "cartVersion, lines, availability and safe continuation URL",
+      "execution": "journal if side-effecting",
+      "result": "authoritative checkout handoff, never purchase completion"
+    },
+    {
+      "action": "complete_checkout",
+      "permission": "out of V1 by default",
+      "confirmation": "separate strong confirmation if ever enabled",
+      "revalidation": "dedicated checkout and payment state",
+      "execution": "denied by the V1 handoff",
+      "result": "denied or dedicated authoritative result"
+    }
+  ],
+  "result_matrix": [
+    {
+      "status": "denied",
+      "mutation_possible": false,
+      "owner": "Commerce permission port",
+      "required_behavior": "typed reason and allowed next action"
+    },
+    {
+      "status": "confirmation_declined",
+      "mutation_possible": false,
+      "owner": "Commerce confirmation service",
+      "required_behavior": "close pending receipt"
+    },
+    {
+      "status": "confirmation_expired",
+      "mutation_possible": false,
+      "owner": "Commerce confirmation service",
+      "required_behavior": "invalidate and rebuild current candidate"
+    },
+    {
+      "status": "stale_state",
+      "mutation_possible": false,
+      "owner": "Commerce handoff validator",
+      "required_behavior": "request a new Sage decision"
+    },
+    {
+      "status": "stale_cart",
+      "mutation_possible": false,
+      "owner": "Commerce provider adapter",
+      "required_behavior": "reread cart and reconfirm when required"
+    },
+    {
+      "status": "invalid_variant",
+      "mutation_possible": false,
+      "owner": "Commerce provider adapter",
+      "required_behavior": "return valid options without silent substitution"
+    },
+    {
+      "status": "invalid_quantity",
+      "mutation_possible": false,
+      "owner": "Commerce Runtime",
+      "required_behavior": "request a valid quantity"
+    },
+    {
+      "status": "price_changed",
+      "mutation_possible": false,
+      "owner": "Commerce provider adapter",
+      "required_behavior": "show current price and require new confirmation"
+    },
+    {
+      "status": "unavailable",
+      "mutation_possible": false,
+      "owner": "Commerce provider adapter",
+      "required_behavior": "explain and return admissible alternatives"
+    },
+    {
+      "status": "failed_before_mutation",
+      "mutation_possible": false,
+      "owner": "Commerce mutation coordinator",
+      "required_behavior": "typed definitive failure"
+    },
+    {
+      "status": "outcome_unknown",
+      "mutation_possible": true,
+      "owner": "Commerce reconciliation service",
+      "required_behavior": "block retry and reconcile before escalation"
+    },
+    {
+      "status": "succeeded_authoritative",
+      "mutation_possible": true,
+      "owner": "Commerce Runtime from Shopify result",
+      "required_behavior": "persist result before Experience announces exact success"
+    }
+  ],
+  "items": [
+    {
+      "id": "SH-01",
+      "sections": ["01", "07", "23", "24"],
+      "target": "constitution and Sage stopping point",
+      "verdict": "KEEP",
+      "severity": "important",
+      "claim": "Sage stops at a structured intent to act and owns no transactional authority",
+      "evidence": [
+        "../labs/magpie-intent-finder/docs/decision-logic/SAGE_DECISION_LOGIC_V1_DRAFT.md:2291-2340",
+        "../labs/magpie-intent-finder/docs/agent-system/LAB_MINI_ME.json"
+      ],
+      "minimal_change": "none",
+      "required_tests": ["negative handoff test for authoritative commerce fields"]
+    },
+    {
+      "id": "SH-02",
+      "sections": ["24", "26", "27", "28"],
+      "target": "CommerceIntentHandoff identity, expiry and causality",
+      "verdict": "MODIFY",
+      "severity": "blocking",
+      "claim": "The handoff needs bounded lifetime and end-to-end causal references",
+      "evidence": [
+        "../labs/magpie-intent-finder/docs/decision-logic/SAGE_DECISION_LOGIC_V1_DRAFT.md:2299-2317",
+        "../labs/magpie-intent-finder/docs/decision-logic/SAGE_DECISION_LOGIC_V1_DRAFT.md:2492-2504"
+      ],
+      "minimal_change": "Add issuedAt, expiresAt, correlationId, causationId and explicit privacy invariants; do not add cartVersion",
+      "required_tests": ["schema validation", "expiry", "payload bounds", "PII and secret rejection"]
+    },
+    {
+      "id": "SH-03",
+      "sections": ["07", "24", "25", "27", "28"],
+      "target": "shopperActionIntent",
+      "verdict": "MODIFY",
+      "severity": "blocking",
+      "claim": "buy_candidate and add_candidate are ambiguous and may be interpreted as mutation commands",
+      "evidence": [
+        "../labs/magpie-intent-finder/docs/decision-logic/SAGE_DECISION_LOGIC_V1_DRAFT.md:2310-2329"
+      ],
+      "minimal_change": "Use check_availability, prepare_cart_candidate, request_cart_add and request_checkout_handoff; exclude complete_checkout from V1",
+      "required_tests": ["action-to-operation conformance", "no direct mutation from handoff"]
+    },
+    {
+      "id": "SH-04",
+      "sections": ["19", "23", "24", "26", "27", "28"],
+      "target": "permission.check port",
+      "verdict": "MISSING",
+      "severity": "blocking",
+      "claim": "No versioned permission decision exists per commerce action",
+      "evidence": [
+        "../labs/magpie-intent-finder/docs/decision-logic/SAGE_DECISION_LOGIC_V1_DRAFT.md:2331-2340"
+      ],
+      "minimal_change": "Define a Commerce Runtime permission port returning allowed or denied with policy version",
+      "required_tests": ["tenant matrix", "capability matrix", "feature flag matrix", "denied creates no mutation record"]
+    },
+    {
+      "id": "SH-05",
+      "sections": ["24", "27", "28"],
+      "target": "confirmation receipt",
+      "verdict": "MISSING",
+      "severity": "blocking",
+      "claim": "Confirmation has no expiry or binding to current price, stock, cartVersion and execution revision",
+      "evidence": [
+        "app/services/tool-registry.server.js:323-350",
+        "app/services/tool-registry.server.js:544-550"
+      ],
+      "minimal_change": "Define an exact expiring CommerceConfirmationReceipt owned by Commerce Runtime",
+      "required_tests": ["accept", "decline", "expire", "stale state", "changed price", "changed stock", "changed cart", "single use"]
+    },
+    {
+      "id": "SH-06",
+      "sections": ["18", "23", "24", "27", "28"],
+      "target": "fresh pre-mutation revalidation",
+      "verdict": "MISSING",
+      "severity": "blocking",
+      "claim": "Variant, price, stock and cart must be reread after confirmation and immediately before mutation",
+      "evidence": [
+        "app/services/tool-registry.server.js:288-307",
+        "app/services/tool-registry.server.js:361-405"
+      ],
+      "minimal_change": "Define a provider-backed revalidation port; any material change invalidates confirmation",
+      "required_tests": ["deleted variant", "invalid quantity", "price changed", "stock exhausted", "concurrent cart", "stale response"]
+    },
+    {
+      "id": "SH-07",
+      "sections": ["23", "24", "27", "28"],
+      "target": "durable mutation journal and retry barrier",
+      "verdict": "KEEP",
+      "severity": "important",
+      "claim": "Persisted idempotence and LLM fallback blocking after a side effect are sound invariants",
+      "evidence": [
+        "app/services/commerce-mutation.server.js:83-249",
+        "prisma/schema.prisma:281-305",
+        "app/services/llm-gateway.server.js:312-323"
+      ],
+      "minimal_change": "none",
+      "required_tests": ["replay", "concurrency", "result persistence failure", "fallback blocked"]
+    },
+    {
+      "id": "SH-08",
+      "sections": ["23", "24", "26", "27", "28"],
+      "target": "provider idempotency propagation and checkout journaling",
+      "verdict": "MODIFY",
+      "severity": "blocking",
+      "claim": "Local idempotence is insufficient when the UCP mutation does not receive the key and checkout side effects bypass the journal",
+      "evidence": [
+        "app/services/commerce/ucp-provider.server.js:141-184",
+        "app/services/commerce/ucp-client.server.js:171-195",
+        "app/services/tool-registry.server.js:440-477"
+      ],
+      "minimal_change": "Propagate one idempotency key to every mutating provider call and journal side-effecting checkout operations",
+      "required_tests": ["UCP option assertion", "cross-process replay", "checkout timeout before and after provider acceptance"]
+    },
+    {
+      "id": "SH-09",
+      "sections": ["19", "23", "24", "26", "27", "28"],
+      "target": "ambiguous outcome reconciliation",
+      "verdict": "MISSING",
+      "severity": "blocking",
+      "claim": "Blocking retry does not resolve STARTED or UNKNOWN; a bounded reconciler is required",
+      "evidence": [
+        "app/services/commerce-mutation.server.js:169-202",
+        "tests/commerce-mutation.test.js:187-192"
+      ],
+      "minimal_change": "Define reconcileCommerceMutation using provider lookup or authoritative cart reread before escalation",
+      "required_tests": ["timeout before mutation", "timeout after mutation", "result recovered", "still unknown", "escalation budget exhausted"]
+    },
+    {
+      "id": "SH-10",
+      "sections": ["19", "24", "27", "28"],
+      "target": "authoritative Commerce result union",
+      "verdict": "MISSING",
+      "severity": "blocking",
+      "claim": "Commerce outcomes are not represented as one exhaustive owner-controlled union",
+      "evidence": [
+        "../labs/magpie-intent-finder/docs/decision-logic/SAGE_DECISION_LOGIC_V1_DRAFT.md:2545-2566",
+        "app/services/tool-registry.server.js:416-477"
+      ],
+      "minimal_change": "Define a CommerceResultEnvelope covering every required state and safe authoritative success",
+      "required_tests": ["exhaustive discriminants", "success impossible without authoritative status"]
+    },
+    {
+      "id": "SH-11",
+      "sections": ["23", "25", "26", "27"],
+      "target": "shopper success message owner",
+      "verdict": "MODIFY",
+      "severity": "blocking",
+      "claim": "Experience must project the typed Commerce result; Sage and free LLM text cannot reinterpret success",
+      "evidence": [
+        "../labs/magpie-intent-finder/docs/decision-logic/SAGE_DECISION_LOGIC_V1_DRAFT.md:3356-3383",
+        "app/services/experience-document.server.js:54-59",
+        "app/services/llm-gateway.server.js:379-392"
+      ],
+      "minimal_change": "Route CommerceResultEnvelope to Experience and send Sage a separate reduced outcome event",
+      "required_tests": ["contradictory LLM text cannot create or hide commerce status"]
+    },
+    {
+      "id": "SH-12",
+      "sections": ["19", "24", "26", "27", "28"],
+      "target": "escalation ordering for ambiguous outcomes",
+      "verdict": "MODIFY",
+      "severity": "important",
+      "claim": "Ambiguous outcomes escalate only after bounded reconciliation and only to a real owner",
+      "evidence": [
+        "../labs/magpie-intent-finder/docs/decision-logic/SAGE_DECISION_LOGIC_V1_DRAFT.md:1944-1954"
+      ],
+      "minimal_change": "Specify outcome_unknown to reconcile to resolved or escalate; do not promise support without an owner",
+      "required_tests": ["owner absent", "owner present", "recovery exhausted", "late resolution"]
+    },
+    {
+      "id": "SH-13",
+      "sections": ["23", "24", "26", "27", "28"],
+      "target": "Commerce events and privacy",
+      "verdict": "MODIFY",
+      "severity": "important",
+      "claim": "The causal envelope is sound, but Commerce gate and reconciliation events are incomplete",
+      "evidence": [
+        "../labs/magpie-intent-finder/docs/decision-logic/SAGE_DECISION_LOGIC_V1_DRAFT.md:2465-2514",
+        "app/services/analytics-event.server.js:4-35",
+        "app/services/analytics-event.server.js:92-111"
+      ],
+      "minimal_change": "Add versioned permission, expiry, revalidation, mutation unknown, reconciliation and result events with safe opaque references",
+      "required_tests": ["event allowlist", "causal order", "PII and secret rejection", "retention policy"]
+    },
+    {
+      "id": "SH-14",
+      "sections": ["18", "19", "23", "24", "25", "26", "27", "28"],
+      "target": "Commerce boundary conformance tests",
+      "verdict": "MODIFY",
+      "severity": "blocking",
+      "claim": "Generic handoff tests do not prove permission, confirmation, revalidation and authoritative outcome invariants",
+      "evidence": [
+        "../labs/magpie-intent-finder/docs/decision-logic/SAGE_DECISION_LOGIC_V1_DRAFT.md:2618-2681",
+        "tests/tool-registry.test.js:125-194",
+        "tests/commerce-mutation.test.js:26-192"
+      ],
+      "minimal_change": "Create shared contract fixtures executed by the Shopify owner for every action and result matrix row",
+      "required_tests": ["all result states", "cross-tenant", "double submit", "missing capability", "side-effecting checkout"]
+    },
+    {
+      "id": "SH-15",
+      "sections": ["07", "23", "24", "25", "26", "27", "28"],
+      "target": "LLM as direct commerce mutation trigger",
+      "verdict": "REJECT",
+      "severity": "blocking",
+      "claim": "A model must not freely translate HANDOFF_COMMERCE into update_cart or checkout execution",
+      "evidence": [
+        "../labs/magpie-intent-finder/docs/decision-logic/SAGE_DECISION_LOGIC_V1_DRAFT.md:2256-2268",
+        "app/services/llm-gateway.server.js:175-218"
+      ],
+      "minimal_change": "Use a deterministic CommerceHandoffOrchestrator; LLM use is limited to bounded interpretation and formulation",
+      "required_tests": ["hostile prompt", "unauthorized tool call", "falsified model success", "no mutation reservation"]
+    },
+    {
+      "id": "SH-16",
+      "sections": ["07", "18", "24", "27", "28"],
+      "target": "abstention before commerce handoff",
+      "verdict": "KEEP",
+      "severity": "important",
+      "claim": "Abstain on stale or insufficient critical evidence and never silently relax constraints",
+      "evidence": [
+        "../labs/magpie-intent-finder/docs/decision-logic/SAGE_DECISION_LOGIC_V1_DRAFT.md:1861-1908"
+      ],
+      "minimal_change": "none",
+      "required_tests": ["no commerce handoff from stale or unverifiable critical evidence"]
+    }
+  ],
+  "counts": {
+    "KEEP": 3,
+    "MODIFY": 7,
+    "REJECT": 1,
+    "MISSING": 5,
+    "total": 16,
+    "blocking": 11
+  },
+  "blockers": [
+    "SH-02",
+    "SH-03",
+    "SH-04",
+    "SH-05",
+    "SH-06",
+    "SH-08",
+    "SH-09",
+    "SH-10",
+    "SH-11",
+    "SH-14",
+    "SH-15"
+  ],
+  "tests": {
+    "date": "2026-08-08",
+    "overall_result": "passed_with_postgres_integration_skipped",
+    "runs": [
+      {
+        "name": "commerce_boundary_targeted",
+        "command": "npm test -- tests/commerce-mutation.test.js tests/tool-registry.test.js tests/commerce-session.test.js tests/ucp-commerce.test.js tests/llm-providers.test.js tests/experience-document.test.js tests/contracts-and-streams.test.js tests/commerce.e2e.test.js",
+        "files_passed": 8,
+        "files_skipped": 0,
+        "tests_passed": 67,
+        "tests_failed": 0,
+        "tests_skipped": 0
+      },
+      {
+        "name": "full_local_suite",
+        "command": "npm test",
+        "files_passed": 15,
+        "files_skipped": 1,
+        "tests_passed": 105,
+        "tests_failed": 0,
+        "tests_skipped": 8,
+        "skip_reason": "PostgreSQL integration environment was not configured"
+      }
+    ],
+    "remote_calls": false,
+    "limitations": [
+      "deterministic local E2E only",
+      "no live Shopify mutation",
+      "no PostgreSQL integration execution",
+      "no confirmation expiry test",
+      "no fresh price or stock revalidation test",
+      "no cartVersion test",
+      "no ambiguous outcome reconciliation test"
+    ]
+  },
+  "conditional_approval": true,
+  "can_freeze_commerce_boundary": false,
+  "next_owner": "MAGPIE",
+  "next_action": "Integrate SH-01 through SH-16 into the Magpie resolution log, publish a revised draft, then return the accepted Commerce contracts to IntentCart for owner-side implementation and conformance tests."
+}

@@ -253,7 +253,7 @@ export function createCommerceOrchestrator({
         });
 
         try {
-          const result = await registry.execute(name, input, {
+          const result = await registry.executeModelTool(name, input, {
             context,
             session,
             confirmation,

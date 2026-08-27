@@ -103,6 +103,7 @@ model Shop {
   commerceSessions      CommerceSession[]
   commerceEvents        CommerceEvent[]
   commerceMutations     CommerceMutation[]
+  commerceConfirmations CommerceConfirmation[]
   experimentAssignments ExperimentAssignment[]
   rateLimitBuckets      RateLimitBucket[]
   customerTokens        CustomerToken[]
@@ -269,6 +270,7 @@ model CommerceSession {
   conversation         Conversation          @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   events               CommerceEvent[]
   mutations            CommerceMutation[]
+  confirmations        CommerceConfirmation[]
   experimentAssignment ExperimentAssignment? @relation(fields: [experimentAssignmentId], references: [id], onDelete: SetNull)
 
   @@index([shopId, journeyStage, updatedAt])
@@ -302,6 +304,32 @@ model CommerceMutation {
   @@unique([shopId, idempotencyKey])
   @@unique([shopId, confirmationId, operation])
   @@index([shopId, state, updatedAt])
+  @@index([commerceSessionId, createdAt])
+}
+
+model CommerceConfirmation {
+  id                   String   @id
+  shopId               String
+  commerceSessionId    String
+  handoffId            String
+  permissionDecisionId String
+  stateRevision        Int
+  action               String
+  argumentDigest       String
+  receipt              Json
+  status               String   @default("pending")
+  expiresAt            DateTime
+  decidedAt            DateTime?
+  consumedAt           DateTime?
+  version              Int      @default(1)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  shop            Shop            @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  commerceSession CommerceSession @relation(fields: [commerceSessionId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, handoffId])
+  @@index([shopId, status, expiresAt])
   @@index([commerceSessionId, createdAt])
 }
 

@@ -384,9 +384,9 @@ export function buildSystemInstruction(
     `Brand voice: ${assistant.brandVoice}`,
     `Maximum recommendations: ${shopping.recommendationRules.maxProducts}`,
     `Out-of-stock policy: ${shopping.outOfStockPolicy}`,
-    "Use only registered tools for Shopify facts and actions.",
-    "Never claim a cart mutation succeeded unless update_cart returned success.",
-    "Before update_cart, ask for explicit confirmation of exact product, variant, and quantity.",
+    "Use registered read-only tools for Shopify facts.",
+    "Never request or execute a cart or checkout mutation. The deterministic Commerce boundary owns permission, exact confirmation, revalidation, mutation, and authoritative outcomes.",
+    "Ask for the shopper's exact product, variant, and quantity when they are missing, but never claim that this conversational reply changed commerce state.",
     "Recommend no more than three products and explain the main tradeoff.",
     `Commerce session (internal JSON): ${JSON.stringify(commerceContext)}`,
   ].join("\n\n");

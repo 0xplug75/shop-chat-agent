@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:magpie-lab:commerce-outcome-event:1.0",
+  "title": "CommerceOutcomeEvent v1",
+  "description": "Reduced Commerce continuity event consumed by Sage without transaction details.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "version", "handoffId", "correlationId", "resultRef", "outcome", "occurredAt"],
+  "properties": {
+    "kind": { "const": "CommerceOutcomeEvent" },
+    "version": { "const": "1.0" },
+    "handoffId": { "$ref": "#/$defs/opaqueRef" },
+    "correlationId": { "$ref": "#/$defs/opaqueRef" },
+    "resultRef": { "$ref": "#/$defs/opaqueRef" },
+    "outcome": {
+      "enum": ["no_mutation", "confirmation_pending", "mutation_failed", "mutation_unknown", "mutation_succeeded"]
+    },
+    "occurredAt": { "type": "string", "format": "date-time", "maxLength": 64 }
+  },
+  "$defs": {
+    "opaqueRef": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9:_./-]{0,127}$"
+    }
+  }
+}

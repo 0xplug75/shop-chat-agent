@@ -1,0 +1,29 @@
+# Read-only Shopify CLI inspection.
+prefix_rule(pattern = ["shopify", "version"], decision = "allow")
+prefix_rule(pattern = ["shopify", "help"], decision = "allow")
+prefix_rule(pattern = ["shopify", "app", "info"], decision = "allow")
+prefix_rule(pattern = ["shopify", "app", "config", "list"], decision = "allow")
+
+# Local development can apply migrations, create tunnels, or persist app URLs.
+prefix_rule(pattern = ["shopify", "app", "dev"], decision = "prompt")
+prefix_rule(pattern = ["npm", "run", "dev"], decision = "prompt")
+
+# Deployment always requires explicit user approval.
+prefix_rule(pattern = ["shopify", "app", "deploy"], decision = "prompt")
+prefix_rule(pattern = ["npm", "run", "deploy"], decision = "prompt")
+
+# Authentication, environment, and app-linking commands can expose or change credentials.
+prefix_rule(pattern = ["shopify", "auth"], decision = "prompt")
+prefix_rule(pattern = ["shopify", "app", "env"], decision = "prompt")
+prefix_rule(pattern = ["shopify", "app", "config", "link"], decision = "prompt")
+prefix_rule(pattern = ["shopify", "app", "config", "use"], decision = "prompt")
+prefix_rule(pattern = ["npm", "run", "env"], decision = "prompt")
+
+# Destructive local or remote operations are forbidden in this lab policy.
+prefix_rule(pattern = ["shopify", "app", "versions", "delete"], decision = "forbidden")
+prefix_rule(pattern = ["git", "reset", "--hard"], decision = "forbidden")
+prefix_rule(pattern = ["git", "clean"], decision = "forbidden")
+prefix_rule(pattern = ["git", "push", "--force"], decision = "forbidden")
+prefix_rule(pattern = ["git", "push", "-f"], decision = "forbidden")
+prefix_rule(pattern = ["rm", "-rf"], decision = "forbidden")
+prefix_rule(pattern = ["rm", "-fr"], decision = "forbidden")

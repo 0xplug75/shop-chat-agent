@@ -27,6 +27,8 @@ export class CommerceMutationError extends Error {
       state = SIDE_EFFECT_STATES.NONE,
       retryable = false,
       cause,
+      mutation,
+      idempotencyKey,
     } = {},
   ) {
     super(message, cause ? { cause } : undefined);
@@ -35,6 +37,8 @@ export class CommerceMutationError extends Error {
     this.status = status;
     this.sideEffectState = state;
     this.retryable = retryable;
+    this.mutation = mutation || null;
+    this.idempotencyKey = idempotencyKey || mutation?.idempotencyKey || null;
     this.publicMessage =
       state === SIDE_EFFECT_STATES.UNKNOWN ||
       state === SIDE_EFFECT_STATES.STARTED
@@ -160,7 +164,11 @@ export function createCommerceMutationCoordinator({
         throw new CommerceMutationError(
           "SIDE_EFFECT_CONCURRENCY_CONFLICT",
           "Commerce mutation could not acquire its execution barrier",
-          { state: record?.state || SIDE_EFFECT_STATES.UNKNOWN },
+          {
+            state: record?.state || SIDE_EFFECT_STATES.UNKNOWN,
+            mutation: record ? publicMutation(record) : null,
+            idempotencyKey,
+          },
         );
       }
 
@@ -173,8 +181,9 @@ export function createCommerceMutationCoordinator({
         const failureState = definitive
           ? SIDE_EFFECT_STATES.FAILED
           : SIDE_EFFECT_STATES.UNKNOWN;
+        let failureRecord = record;
         try {
-          await store.transition({
+          const transitioned = await store.transition({
             id: record.id,
             shopId: context.shopId,
             from: SIDE_EFFECT_STATES.STARTED,
@@ -184,6 +193,7 @@ export function createCommerceMutationCoordinator({
               resolvedAt: now(),
             },
           });
+          if (transitioned) failureRecord = transitioned;
         } catch (_persistenceError) {
           // Leaving STARTED is conservative: every retry remains blocked.
         }
@@ -198,6 +208,8 @@ export function createCommerceMutationCoordinator({
             state: failureState,
             retryable: false,
             cause,
+            mutation: publicMutation(failureRecord),
+            idempotencyKey,
           },
         );
       }
@@ -224,6 +236,8 @@ export function createCommerceMutationCoordinator({
             state: SIDE_EFFECT_STATES.STARTED,
             retryable: false,
             cause,
+            mutation: publicMutation(record),
+            idempotencyKey,
           },
         );
       }
@@ -235,6 +249,8 @@ export function createCommerceMutationCoordinator({
             status: 503,
             state: record?.state || SIDE_EFFECT_STATES.STARTED,
             retryable: false,
+            mutation: publicMutation(record),
+            idempotencyKey,
           },
         );
       }
@@ -244,6 +260,92 @@ export function createCommerceMutationCoordinator({
         status: "executed",
         idempotencyKey,
         result: record.result,
+        mutation: publicMutation(record),
+      };
+    },
+
+    async reconcile({ context, mutationRef, verify }) {
+      if (!context?.shopId) throw new Error("Merchant context is required");
+      if (!mutationRef) throw new Error("Mutation reference is required");
+      if (typeof verify !== "function") {
+        throw new Error("Reconciliation verifier is required");
+      }
+      let record = await store.find({
+        id: mutationRef,
+        shopId: context.shopId,
+      });
+      if (!record) {
+        throw new CommerceMutationError(
+          "MUTATION_NOT_FOUND",
+          "Commerce mutation was not found",
+          { status: 404 },
+        );
+      }
+      if (record.state === SIDE_EFFECT_STATES.CONFIRMED) {
+        return {
+          status: "succeeded",
+          result: record.result,
+          mutation: publicMutation(record),
+        };
+      }
+      if (record.state === SIDE_EFFECT_STATES.FAILED) {
+        return {
+          status: "not_applied",
+          result: null,
+          mutation: publicMutation(record),
+        };
+      }
+      if (record.state !== SIDE_EFFECT_STATES.UNKNOWN) {
+        return {
+          status: "unknown",
+          result: null,
+          mutation: publicMutation(record),
+        };
+      }
+
+      const resolution = await verify({
+        idempotencyKey: record.idempotencyKey,
+        request: record.request,
+        mutation: publicMutation(record),
+      });
+      if (!resolution || resolution.status === "unknown") {
+        return {
+          status: "unknown",
+          result: null,
+          mutation: publicMutation(record),
+        };
+      }
+      const succeeded = resolution.status === "succeeded";
+      record = await store.transition({
+        id: record.id,
+        shopId: context.shopId,
+        from: SIDE_EFFECT_STATES.UNKNOWN,
+        to: succeeded
+          ? SIDE_EFFECT_STATES.CONFIRMED
+          : SIDE_EFFECT_STATES.FAILED,
+        changes: {
+          result: succeeded ? redactAndBound(resolution.result) : null,
+          errorCode: succeeded ? null : "RECONCILED_NOT_APPLIED",
+          resolvedAt: now(),
+        },
+      });
+      if (record?.state === SIDE_EFFECT_STATES.CONFIRMED) {
+        return {
+          status: "succeeded",
+          result: record.result,
+          mutation: publicMutation(record),
+        };
+      }
+      if (record?.state === SIDE_EFFECT_STATES.FAILED) {
+        return {
+          status: "not_applied",
+          result: null,
+          mutation: publicMutation(record),
+        };
+      }
+      return {
+        status: "unknown",
+        result: null,
         mutation: publicMutation(record),
       };
     },
@@ -289,6 +391,9 @@ export function createPrismaCommerceMutationStore({ db = prisma } = {}) {
       if (updated.count !== 1) {
         return db.commerceMutation.findFirst({ where: { id, shopId } });
       }
+      return db.commerceMutation.findFirst({ where: { id, shopId } });
+    },
+    async find({ id, shopId }) {
       return db.commerceMutation.findFirst({ where: { id, shopId } });
     },
   };
@@ -338,6 +443,11 @@ export function createInMemoryCommerceMutationStore() {
       };
       records.set(id, updated);
       return structuredClone(updated);
+    },
+    async find({ id, shopId }) {
+      const record = records.get(id);
+      if (!record || record.shopId !== shopId) return null;
+      return structuredClone(record);
     },
   };
 }
@@ -396,21 +506,32 @@ function blockResolvedOrUncertain(record, sideEffectState) {
         ? "SIDE_EFFECT_UNKNOWN"
         : "SIDE_EFFECT_IN_PROGRESS",
       "Commerce mutation is not safe to replay",
-      { state: record.state, retryable: false },
+      {
+        state: record.state,
+        retryable: false,
+        mutation: publicMutation(record),
+      },
     );
   }
   if (record.state === SIDE_EFFECT_STATES.FAILED) {
     throw new CommerceMutationError(
       "SIDE_EFFECT_PREVIOUSLY_FAILED",
       "Commerce mutation previously failed",
-      { state: record.state, retryable: false },
+      {
+        state: record.state,
+        retryable: false,
+        mutation: publicMutation(record),
+      },
     );
   }
 }
 
 function isDefinitivePreMutationFailure(error) {
-  return ["AUTH_REQUIRED", "TOOL_NOT_AVAILABLE", "INVALID_TOOL_INPUT"].includes(
-    String(error?.code || ""),
+  return (
+    error?.definitiveBeforeMutation === true ||
+    ["AUTH_REQUIRED", "TOOL_NOT_AVAILABLE", "INVALID_TOOL_INPUT"].includes(
+      String(error?.code || ""),
+    )
   );
 }
 

@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:magpie-lab:commerce-intent-handoff:1.1",
+  "title": "CommerceIntentHandoff v1.1",
+  "description": "Magpie-owned expiring request. It is neither a permission nor a mutation command.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "version",
+    "handoffId",
+    "decisionId",
+    "stateRevision",
+    "correlationId",
+    "issuedAt",
+    "expiresAt",
+    "selectedProductRef",
+    "selectedOptionPreferences",
+    "shopperActionIntent",
+    "marketRef",
+    "evidenceSnapshotRefs",
+    "unresolvedCommerceInputs"
+  ],
+  "properties": {
+    "kind": { "const": "CommerceIntentHandoff" },
+    "version": { "const": "1.1" },
+    "handoffId": { "$ref": "#/$defs/opaqueRef" },
+    "decisionId": { "$ref": "#/$defs/opaqueRef" },
+    "stateRevision": { "type": "integer", "minimum": 0 },
+    "correlationId": { "$ref": "#/$defs/opaqueRef" },
+    "causationId": { "$ref": "#/$defs/opaqueRef" },
+    "issuedAt": { "type": "string", "format": "date-time", "maxLength": 64 },
+    "expiresAt": { "type": "string", "format": "date-time", "maxLength": 64 },
+    "selectedProductRef": { "$ref": "product-reference-candidate.schema.json" },
+    "selectedOptionPreferences": {
+      "type": "array",
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["optionName", "preferredValue"],
+        "properties": {
+          "optionName": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "preferredValue": { "type": "string", "minLength": 1, "maxLength": 120 }
+        }
+      }
+    },
+    "shopperActionIntent": {
+      "enum": ["check_availability", "prepare_cart_candidate", "request_cart_add", "request_checkout_handoff"]
+    },
+    "marketRef": { "$ref": "#/$defs/opaqueRef" },
+    "evidenceSnapshotRefs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 20,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/opaqueRef" }
+    },
+    "unresolvedCommerceInputs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 3,
+      "uniqueItems": true,
+      "contains": { "const": "availability" },
+      "items": { "enum": ["variant", "quantity", "availability"] }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "shopperActionIntent": {
+            "enum": ["prepare_cart_candidate", "request_cart_add", "request_checkout_handoff"]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "unresolvedCommerceInputs": {
+            "allOf": [
+              { "contains": { "const": "variant" } },
+              { "contains": { "const": "quantity" } },
+              { "contains": { "const": "availability" } }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "opaqueRef": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9:_./-]{0,127}$"
+    }
+  }
+}

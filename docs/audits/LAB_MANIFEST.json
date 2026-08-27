@@ -1,0 +1,1675 @@
+{
+  "audit_version": "1.0",
+  "snapshot_status": "historical_pre_stabilization",
+  "superseded_by": [
+    "docs/execution/PRODUCTION_RUN.md",
+    "PROMOTION_MANIFEST.json"
+  ],
+  "audit_date": "2026-08-01",
+  "lab_name": "Intent card shopify",
+  "codex_task_name": "Intent Card_SHOPIFY",
+  "repository_name": "shop-chat-agent",
+  "repository_root": ".",
+  "repository_type": "Autonomous Git repository nested in a separate parent monorepo worktree",
+  "evidence_vocabulary": {
+    "observed": "Read from code, Git, configuration, an executed local test, or a read-only external interface during the audit.",
+    "documented_not_verified": "Asserted by repository documentation without current runtime proof.",
+    "inference": "Reasonable conclusion derived from multiple observed facts.",
+    "hypothesis": "Unproven possibility.",
+    "unknown": "Not determinable without unavailable evidence, secrets, mutations, or additional external tests."
+  },
+  "git": {
+    "branch": "codex/intentcart-admin-freeze",
+    "head": "43ae66e4c5b9de4f3bbc74a043701d784febdb8d",
+    "head_date": "2026-07-31T23:23:05+02:00",
+    "head_subject": "chore(shopify): remove obsolete deploy flag",
+    "remote": "https://github.com/0xplug75/shop-chat-agent.git",
+    "worktree_status": "Pre-audit user changes: modified docs/PROJECT_STATE.md, modified docs/Vision.md, untracked docs/Positioning.md. Audit deliverables are additional untracked files.",
+    "submodules": [],
+    "worktrees": 1,
+    "tags": [],
+    "ci": "No versioned CI configuration found",
+    "tracked_file_count": 142,
+    "significant_commits": [
+      {
+        "commit": "df79d9d",
+        "date": "2026-07-02",
+        "subject": "Build agentic shopping chat mode"
+      },
+      {
+        "commit": "87e8198",
+        "date": "2026-07-02",
+        "subject": "Introduce commerce session engine"
+      },
+      {
+        "commit": "735ed77",
+        "date": "2026-07-02",
+        "subject": "Fix live MVP commerce flow issues"
+      },
+      {
+        "commit": "f84272f",
+        "date": "2026-07-03",
+        "subject": "Introduce merchant configuration system"
+      },
+      {
+        "commit": "6dadb16",
+        "date": "2026-07-08",
+        "subject": "Complete storefront widget modes"
+      },
+      {
+        "commit": "6fa27ec",
+        "date": "2026-07-31",
+        "subject": "Freeze IntentCart admin architecture RC1"
+      },
+      {
+        "commit": "4f92c75",
+        "date": "2026-07-31",
+        "subject": "Harden Supabase and separate OAuth callbacks"
+      },
+      {
+        "commit": "43ae66e",
+        "date": "2026-07-31",
+        "subject": "Remove obsolete deploy flag"
+      }
+    ]
+  },
+  "purpose": "Reduce the intent-to-catalog gap by turning a shopper request into Shopify-grounded discovery, comparison, exact cart confirmation, and checkout handoff without duplicating Shopify commerce truth.",
+  "one_sentence_identity": "IntentCart is the Shopify-native runtime foundation for Sage guided selling, with an embedded merchant view, a Theme App Extension widget, multitenant commerce state, validated tools, and Shopify-owned transactions.",
+  "product_promise": "Turn your Shopify store into an agentic shopping experience.",
+  "category": "Agentic guided selling for Shopify.",
+  "principle": "Sage recommends. Shopify transacts.",
+  "maturity": "Working with limitations - deployed RC foundation, not reliable general production",
+  "locations": {
+    "local": {
+      "status": "Local only",
+      "path": ".",
+      "package_manager": "npm",
+      "node_engine": ">=20.10",
+      "primary_command": "npm run dev",
+      "build_command": "npm run build",
+      "start_command": "npm run start",
+      "mock_preview": "preview/index.html",
+      "postgres_compose": "infra/docker-compose.postgres.yml",
+      "notes": "Local product checks pass except formatting and db validation; Shopify CLI requires an active tunnel and external configuration."
+    },
+    "preview": {
+      "status": "Unknown",
+      "platform": "No separate durable preview environment verified",
+      "url": null,
+      "evidence": "A previous Shopify CLI tunnel is still referenced by the installed embedded app, but the host no longer resolves."
+    },
+    "production": {
+      "status": "Verified live",
+      "platform": "Railway",
+      "project_url": "https://railway.com/project/ed83ed2d-b823-493d-b240-0ac9f671aa45",
+      "service_url": "https://shop-chat-agent-production-3220.up.railway.app",
+      "service_name": "shop-chat-agent",
+      "deployed_commit": "4f92c75257074a3e28ec3c0301043c93bf614933",
+      "head_delta": "HEAD is one configuration-only commit newer than the deployed revision",
+      "replicas": 1,
+      "region": "US West",
+      "database": "Supabase PostgreSQL 17.6",
+      "database_region": "eu-north-1",
+      "health": "Verified HTTP 200",
+      "database_health": "Verified HTTP 200",
+      "shopify_admin": "Broken because the installed iframe points to an expired Cloudflare tunnel",
+      "shopper_agent": "Implemented but blocked by an Anthropic HTTP 400 response"
+    }
+  },
+  "features": [
+    {
+      "name": "Embedded merchant navigation",
+      "description": "Home, Assistant, Widget, Knowledge, and Commerce routes inside Shopify Admin.",
+      "evidence": [
+        "app/routes/app.jsx",
+        "app/routes/app._index.jsx",
+        "app/routes/app.assistant.jsx",
+        "app/routes/app.widget.jsx",
+        "app/routes/app.knowledge.jsx",
+        "app/routes/app.commerce.jsx"
+      ],
+      "status": "Working with limitations",
+      "tested": true,
+      "deployed": true,
+      "limits": ["Read-only", "Current Shopify iframe origin is broken"]
+    },
+    {
+      "name": "Per-shop merchant configuration",
+      "description": "Persists assistant and shopping rules with optimistic versioning.",
+      "evidence": [
+        "app/merchant/merchant.server.js",
+        "app/merchant/merchant.schema.js",
+        "prisma/schema.prisma"
+      ],
+      "status": "Partial",
+      "tested": true,
+      "deployed": true,
+      "limits": [
+        "No admin save action",
+        "Widget, analytics, and integrations are not persisted"
+      ]
+    },
+    {
+      "name": "Four storefront widget layouts",
+      "description": "Bubble, side panel, inline, and fullscreen surfaces managed in Theme Editor.",
+      "evidence": [
+        "extensions/chat-bubble/blocks/chat-interface.liquid",
+        "extensions/chat-bubble/assets/chat.js",
+        "extensions/chat-bubble/assets/chat.css"
+      ],
+      "status": "Working with limitations",
+      "tested": false,
+      "deployed": "Previously deployed",
+      "limits": [
+        "No automated visual tests",
+        "Current Shopify extension release not re-verified"
+      ]
+    },
+    {
+      "name": "Signed App Proxy bootstrap",
+      "description": "Authenticates Shopify App Proxy requests and returns a short-lived origin-bound widget credential.",
+      "evidence": [
+        "app/routes/widget.bootstrap.jsx",
+        "app/security/app-proxy-context.server.js",
+        "app/security/widget-token.server.js"
+      ],
+      "status": "Working",
+      "tested": true,
+      "deployed": true,
+      "limits": []
+    },
+    {
+      "name": "SSE storefront chat",
+      "description": "Streams text, tool events, product results, cart state, and normalized errors.",
+      "evidence": [
+        "app/services/chat-request.server.js",
+        "app/services/streaming.server.js",
+        "app/routes/widget.chat.jsx"
+      ],
+      "status": "Working with limitations",
+      "tested": true,
+      "deployed": true,
+      "limits": ["Live LLM call currently fails"]
+    },
+    {
+      "name": "Live Sage agent",
+      "description": "Anthropic tool loop grounded by Shopify tools and commerce context.",
+      "evidence": [
+        "app/services/llm-gateway.server.js",
+        "app/services/commerce-orchestrator.server.js",
+        "Railway logs observed during audit"
+      ],
+      "status": "Broken",
+      "tested": "Mocked locally",
+      "deployed": true,
+      "limits": ["Anthropic returns HTTP 400", "Exact cause unknown"]
+    },
+    {
+      "name": "Intent routing",
+      "description": "Structured LLM intent extraction with deterministic multilingual fallback.",
+      "evidence": [
+        "app/services/intent-router.server.js",
+        "tests/intent-and-adapters.test.js"
+      ],
+      "status": "Working with limitations",
+      "tested": true,
+      "deployed": true,
+      "limits": ["Narrow hard-coded taxonomy"]
+    },
+    {
+      "name": "Shopify catalog search",
+      "description": "Searches current Shopify catalog through MCP and returns at most three normalized products.",
+      "evidence": [
+        "app/services/catalog-adapter.server.js",
+        "app/services/tool-registry.server.js"
+      ],
+      "status": "Working with limitations",
+      "tested": true,
+      "deployed": true,
+      "limits": ["No recommendation quality evaluation", "Depends on live MCP"]
+    },
+    {
+      "name": "Product comparison",
+      "description": "Compares two or three products already present in the commerce session.",
+      "evidence": [
+        "app/services/tool-registry.server.js",
+        "tests/tool-registry.test.js"
+      ],
+      "status": "Working",
+      "tested": true,
+      "deployed": true,
+      "limits": ["No live relevance benchmark"]
+    },
+    {
+      "name": "Exact cart confirmation",
+      "description": "Requires a session product, available variant, exact quantity, cart binding, and an explicit matching second turn.",
+      "evidence": [
+        "app/services/tool-registry.server.js",
+        "app/services/commerce-orchestrator.server.js",
+        "tests/tool-registry.test.js"
+      ],
+      "status": "Working with limitations",
+      "tested": true,
+      "deployed": true,
+      "limits": ["No full Shopify E2E executed"]
+    },
+    {
+      "name": "Shopify checkout handoff",
+      "description": "Returns a validated checkout URL from the current Shopify cart.",
+      "evidence": [
+        "app/services/checkout-adapter.server.js",
+        "extensions/chat-bubble/assets/chat.js"
+      ],
+      "status": "Partial",
+      "tested": true,
+      "deployed": true,
+      "limits": ["Live handoff not verified during audit"]
+    },
+    {
+      "name": "Persistent commerce session",
+      "description": "Stores journey stage, intent, constraints, recommendations, selections, cart, checkout, pending confirmation, and version.",
+      "evidence": [
+        "app/services/commerce-session.server.js",
+        "prisma/schema.prisma",
+        "tests/commerce-session.test.js"
+      ],
+      "status": "Working",
+      "tested": true,
+      "deployed": true,
+      "limits": ["Expiration script scheduling not verified"]
+    },
+    {
+      "name": "Customer Account OAuth",
+      "description": "Uses one-shot state, PKCE verifier encryption, token encryption, and discovery.",
+      "evidence": [
+        "app/routes/customer-auth.callback.jsx",
+        "app/services/oauth-state.server.js",
+        "app/services/customer-token.server.js"
+      ],
+      "status": "Working with limitations",
+      "tested": true,
+      "deployed": true,
+      "limits": ["No current live E2E"]
+    },
+    {
+      "name": "Webhook lifecycle",
+      "description": "Handles uninstall and compliance topics with idempotent receipts.",
+      "evidence": [
+        "app/routes/api.webhooks.jsx",
+        "app/services/webhook.server.js",
+        "tests/oauth-and-webhooks.test.js"
+      ],
+      "status": "Working",
+      "tested": true,
+      "deployed": true,
+      "limits": ["Current Shopify delivery not re-tested"]
+    },
+    {
+      "name": "Knowledge storage and PostgreSQL FTS",
+      "description": "Provides tenant-scoped knowledge source, document, chunk, and full-text search primitives.",
+      "evidence": [
+        "app/services/knowledge.server.js",
+        "prisma/schema.prisma",
+        "prisma/migrations/20260731090000_postgres_multitenant_foundation/migration.sql"
+      ],
+      "status": "Partial",
+      "tested": "Integration tests skipped in current run",
+      "deployed": true,
+      "limits": [
+        "No ingestion UI or worker",
+        "Observed knowledge tables are empty"
+      ]
+    },
+    {
+      "name": "Commerce analytics events",
+      "description": "Persists sanitized request and commerce events per shop.",
+      "evidence": [
+        "app/services/analytics-event.server.js",
+        "prisma/schema.prisma"
+      ],
+      "status": "Partial",
+      "tested": true,
+      "deployed": true,
+      "limits": ["No merchant analytics, retention policy, or external sink"]
+    },
+    {
+      "name": "Static local widget preview",
+      "description": "Runs real widget assets against intercepted fetch calls, placeholder products, and simulated SSE.",
+      "evidence": ["preview/index.html"],
+      "status": "Mocked",
+      "tested": "Manual only",
+      "deployed": false,
+      "limits": ["Does not prove Shopify, database, or LLM behavior"]
+    },
+    {
+      "name": "Multiple LLM providers",
+      "description": "Intended provider-neutral gateway for Anthropic, OpenAI, Kimi, and future providers.",
+      "evidence": ["app/services/llm-gateway.server.js", ".env.example"],
+      "status": "Documented only",
+      "tested": false,
+      "deployed": false,
+      "limits": ["Only Anthropic is imported and accepted"]
+    },
+    {
+      "name": "UCP and Hydrogen runtime",
+      "description": "Future portable commerce and headless integration direction.",
+      "evidence": [
+        "docs/PRODUCT_ARCHITECTURE.md",
+        "docs/EventSystem.md",
+        "../labs/hydrogen-intent-card/docs/hydrogen-study.md"
+      ],
+      "status": "Documented only",
+      "tested": false,
+      "deployed": false,
+      "limits": ["No current adapter or code dependency"]
+    }
+  ],
+  "documents": [
+    {
+      "path": "README.md",
+      "title": "Build an AI Agent for Your Storefront",
+      "purpose": "Developer boot and architecture overview",
+      "last_git_date": "2026-07-31",
+      "status": "contradictory",
+      "consistency": "The stack is useful, but the document incorrectly says deployment has not occurred."
+    },
+    {
+      "path": "CHANGELOG.md",
+      "title": "Shopify React Router template changelog",
+      "purpose": "Upstream template history",
+      "last_git_date": "2025-10-07",
+      "status": "historical",
+      "consistency": "Does not track IntentCart releases."
+    },
+    {
+      "path": "docs/Positioning.md",
+      "title": "Product Positioning",
+      "purpose": "Promise, problem, category, ICP, and validation gates",
+      "last_git_date": null,
+      "status": "canonical",
+      "consistency": "Current strategic source but untracked user work."
+    },
+    {
+      "path": "docs/Vision.md",
+      "title": "Vision",
+      "purpose": "Long-term product and runtime principles",
+      "last_git_date": "2026-07-03",
+      "status": "canonical",
+      "consistency": "Principles match the runtime; future surfaces remain aspirational."
+    },
+    {
+      "path": "docs/architecture-target.md",
+      "title": "IntentCart implemented architecture",
+      "purpose": "Current technical baseline",
+      "last_git_date": "2026-07-31",
+      "status": "canonical",
+      "consistency": "Closest document to current code."
+    },
+    {
+      "path": "docs/testing.md",
+      "title": "Verification guide",
+      "purpose": "Local and integration checks",
+      "last_git_date": "2026-07-31",
+      "status": "useful",
+      "consistency": "Commands are current; migration count is one behind."
+    },
+    {
+      "path": "docs/DESIGN.md",
+      "title": "IntentCart Design System",
+      "purpose": "Admin and widget design rules",
+      "last_git_date": "2026-07-31",
+      "status": "useful",
+      "consistency": "Mostly coherent with current UI."
+    },
+    {
+      "path": "docs/implementation-report.md",
+      "title": "Architecture implementation report",
+      "purpose": "Delivered code inventory and validation",
+      "last_git_date": "2026-07-31",
+      "status": "useful",
+      "consistency": "Code inventory is useful; remote deployment status is stale."
+    },
+    {
+      "path": "docs/deployment/railway-supabase.md",
+      "title": "Railway and Supabase runbook",
+      "purpose": "Deployment procedure",
+      "last_git_date": "2026-07-31",
+      "status": "useful",
+      "consistency": "Procedure remains useful; preparation-only claim is stale."
+    },
+    {
+      "path": "docs/data/sqlite-to-postgres.md",
+      "title": "SQLite to PostgreSQL development-data migration",
+      "purpose": "Optional local data migration",
+      "last_git_date": "2026-07-31",
+      "status": "useful",
+      "consistency": "Compatible with current schema."
+    },
+    {
+      "path": "docs/architecture-audit.md",
+      "title": "IntentCart architecture audit",
+      "purpose": "Pre-hardening risk inventory",
+      "last_git_date": "2026-07-31",
+      "status": "historical",
+      "consistency": "Several listed gaps were fixed by later commits."
+    },
+    {
+      "path": "docs/PROJECT_STATE.md",
+      "title": "IntentCart",
+      "purpose": "Project status and roadmap",
+      "last_git_date": "2026-07-31",
+      "status": "contradictory",
+      "consistency": "Recent local header coexists with obsolete JSON and future-Supabase sections."
+    },
+    {
+      "path": "docs/Architecture.md",
+      "title": "Architecture",
+      "purpose": "Earlier four-layer request flow",
+      "last_git_date": "2026-07-31",
+      "status": "obsolete",
+      "consistency": "References the old chat and Claude path."
+    },
+    {
+      "path": "docs/MerchantConsole.md",
+      "title": "Merchant Console",
+      "purpose": "Earlier merchant configuration architecture",
+      "last_git_date": "2026-07-31",
+      "status": "obsolete",
+      "consistency": "Describes JSON/cache storage rather than Prisma."
+    },
+    {
+      "path": "docs/CommerceSession.md",
+      "title": "Commerce Session",
+      "purpose": "Earlier commerce-state model",
+      "last_git_date": "2026-07-03",
+      "status": "historical",
+      "consistency": "Concept remains useful; current persistence and cart flow differ."
+    },
+    {
+      "path": "docs/Agents.md",
+      "title": "Agents",
+      "purpose": "Sage guardrails, prompts, and future roster",
+      "last_git_date": "2026-07-03",
+      "status": "useful",
+      "consistency": "Guardrails remain useful; implementation references are stale."
+    },
+    {
+      "path": "docs/EventSystem.md",
+      "title": "Event System and Reactive Commerce Architecture",
+      "purpose": "Future Hydrogen-based event architecture",
+      "last_git_date": "2026-07-03",
+      "status": "documented only",
+      "consistency": "Explicitly describes layers without current code."
+    },
+    {
+      "path": "docs/Integrations.md",
+      "title": "Integrations",
+      "purpose": "Integration tiers and future fabric",
+      "last_git_date": "2026-07-03",
+      "status": "obsolete",
+      "consistency": "Tiering is useful; files, env names, and analytics claims are stale."
+    },
+    {
+      "path": "docs/Roadmap.md",
+      "title": "Roadmap",
+      "purpose": "Merchant OS, analytics, and integration sequencing",
+      "last_git_date": "2026-07-03",
+      "status": "historical",
+      "consistency": "Useful intent, not a current implementation map."
+    },
+    {
+      "path": "docs/PRODUCT_ARCHITECTURE.md",
+      "title": "IntentCart Product Architecture Document",
+      "purpose": "Product pillars and boundaries",
+      "last_git_date": "2026-07-03",
+      "status": "useful",
+      "consistency": "Strategy is useful; several pillars are unimplemented."
+    },
+    {
+      "path": "docs/architecture-notes/cart-adapter-wiring-gap.md",
+      "title": "Cart adapter wiring gap",
+      "purpose": "Historical gap note",
+      "last_git_date": "2026-07-03",
+      "status": "obsolete",
+      "consistency": "Current tool registry wires the cart adapter."
+    },
+    {
+      "path": "docs/architecture-notes/idor-history-fix.md",
+      "title": "Conversation history IDOR fix",
+      "purpose": "Tenant isolation correction",
+      "last_git_date": "2026-07-31",
+      "status": "historical",
+      "consistency": "Current schema and tests retain this correction."
+    }
+  ],
+  "resources": [
+    {
+      "type": "source_code",
+      "path": "app/",
+      "count_or_size": "57 JS and 21 JSX files across the repository",
+      "role": "Admin, backend services, security, routes, contracts, and orchestration"
+    },
+    {
+      "type": "theme_extension",
+      "path": "extensions/chat-bubble/",
+      "count_or_size": "1 Liquid block, 1,559-line JS, 1,022-line CSS, EN/FR locales",
+      "role": "Storefront widget and Theme Editor configuration"
+    },
+    {
+      "type": "contracts",
+      "path": "app/contracts/commerce.schemas.server.js",
+      "count_or_size": "132 lines",
+      "role": "Zod validation for public requests and commerce tools"
+    },
+    {
+      "type": "database",
+      "path": "prisma/schema.prisma",
+      "count_or_size": "346 lines, 12 models",
+      "role": "PostgreSQL multitenant source of truth"
+    },
+    {
+      "type": "migrations",
+      "path": "prisma/migrations/",
+      "count_or_size": "8 SQL migrations",
+      "role": "Session, OAuth, conversations, multitenancy, and Supabase hardening"
+    },
+    {
+      "type": "prompts",
+      "path": "app/prompts/prompts.json",
+      "count_or_size": "One systemPrompts registry",
+      "role": "Static prompt presets layered with merchant and commerce context"
+    },
+    {
+      "type": "tests",
+      "path": "tests/",
+      "count_or_size": "7 files, 39 tests defined",
+      "role": "Unit, contract, security, and optional PostgreSQL integration"
+    },
+    {
+      "type": "mock_preview",
+      "path": "preview/index.html",
+      "count_or_size": "415 lines, 14,720 bytes previously measured",
+      "role": "Static visual preview with simulated fetch, SSE, and products"
+    },
+    {
+      "type": "binary_asset",
+      "path": "public/favicon.ico",
+      "count_or_size": "16,958 bytes, 64x64 ICO",
+      "role": "Application favicon"
+    },
+    {
+      "type": "deployment",
+      "path": "Dockerfile",
+      "count_or_size": "Two-stage Node 20 Alpine image",
+      "role": "Build and runtime image"
+    },
+    {
+      "type": "deployment",
+      "path": "railway.json",
+      "count_or_size": "Docker builder plus pre-deploy migration and health policy",
+      "role": "Railway service configuration"
+    },
+    {
+      "type": "dev_connector",
+      "path": ".mcp.json",
+      "count_or_size": "One shopify-dev-mcp server entry",
+      "role": "Developer assistance only"
+    },
+    {
+      "type": "generated_local",
+      "path": "build/",
+      "count_or_size": "Generated and ignored",
+      "role": "Production build output"
+    },
+    {
+      "type": "deprecated_local_data",
+      "path": "prisma/dev.sqlite",
+      "count_or_size": "Ignored local SQLite file",
+      "role": "Legacy development data, not current runtime"
+    },
+    {
+      "type": "absent_resource_classes",
+      "path": null,
+      "count_or_size": "No PDF, notebook, video, audio, Figma export, versioned screenshot, benchmark dataset, or CI workflow",
+      "role": "Confirmed absence"
+    }
+  ],
+  "contracts": [
+    {
+      "name": "MerchantContext",
+      "responsibility": "Bind every request and query to a canonical shop and request id.",
+      "inputs": [
+        "Authenticated Shopify session",
+        "Signed App Proxy",
+        "Widget token"
+      ],
+      "outputs": ["shopId", "shopDomain", "requestId", "storefrontOrigin"],
+      "source_of_truth": "Server-side shop resolution",
+      "invariants": [
+        "No client-supplied arbitrary tenant id",
+        "Every durable query is shop-scoped"
+      ],
+      "validation": "Runtime assertions",
+      "tests": true,
+      "version": null,
+      "stability": "High",
+      "sage_compatibility": "Direct"
+    },
+    {
+      "name": "MerchantConfig",
+      "responsibility": "Configure Sage identity, widget, shopping rules, analytics, and integrations.",
+      "inputs": ["Seed JSON", "Per-shop database record"],
+      "outputs": [
+        "Validated effective merchant configuration",
+        "Public storefront projection"
+      ],
+      "source_of_truth": "Database for assistant and shopping fields; seed for widget, analytics, and integrations",
+      "invariants": [
+        "Maximum recommendations is 1-3",
+        "Strict nested schemas",
+        "Optimistic version on persisted fields"
+      ],
+      "validation": "Zod",
+      "tests": "Partial",
+      "version": "Database integer version",
+      "stability": "Medium",
+      "sage_compatibility": "Adapt after completing persistence"
+    },
+    {
+      "name": "ChatRequest",
+      "responsibility": "Validate a public shopper message and optional identifiers.",
+      "inputs": ["message", "conversation_id", "visitor_id", "prompt_type"],
+      "outputs": ["Strict normalized request"],
+      "source_of_truth": "app/contracts/commerce.schemas.server.js",
+      "invariants": [
+        "Message length 1-2000",
+        "UUID identifiers",
+        "No unknown keys"
+      ],
+      "validation": "Zod",
+      "tests": true,
+      "version": null,
+      "stability": "High",
+      "sage_compatibility": "Direct"
+    },
+    {
+      "name": "WidgetTokenPayload",
+      "responsibility": "Authorize a short-lived widget request for one shop and origin.",
+      "inputs": [
+        "shopId",
+        "shopDomain",
+        "storefrontOrigin",
+        "issuedAt",
+        "expiresAt",
+        "tokenId"
+      ],
+      "outputs": ["Signed bearer credential"],
+      "source_of_truth": "HMAC signing secret and active Shop record",
+      "invariants": [
+        "Version 1",
+        "Short TTL",
+        "Canonical shop domain",
+        "Origin binding"
+      ],
+      "validation": "Zod plus HMAC",
+      "tests": true,
+      "version": 1,
+      "stability": "High",
+      "sage_compatibility": "Direct"
+    },
+    {
+      "name": "ShoppingIntent",
+      "responsibility": "Represent structured buying intent and uncertainty.",
+      "inputs": ["Shopper message", "Current CommerceSession"],
+      "outputs": [
+        "goal",
+        "category",
+        "useCase",
+        "budget",
+        "attributes",
+        "preferences",
+        "exclusions",
+        "requestedProductIds",
+        "confidence",
+        "missingInformation"
+      ],
+      "source_of_truth": "LLM structured output with deterministic fallback",
+      "invariants": [
+        "Known goal enum",
+        "Confidence 0-1",
+        "Bounded arrays",
+        "No invented product ids by prompt"
+      ],
+      "validation": "Zod",
+      "tests": true,
+      "version": null,
+      "stability": "Medium",
+      "sage_compatibility": "Needs comparison with Catalog Kit and Magpie"
+    },
+    {
+      "name": "CommerceSession",
+      "responsibility": "Persist the commerce journey and exact mutable decision context.",
+      "inputs": ["Intent", "Tool results", "User confirmations"],
+      "outputs": [
+        "Journey stage",
+        "Constraints",
+        "Recommendations",
+        "Selection",
+        "Cart",
+        "Checkout",
+        "Pending messages"
+      ],
+      "source_of_truth": "Supabase PostgreSQL",
+      "invariants": [
+        "One per conversation",
+        "Tenant scoped",
+        "Allowed stage transitions",
+        "TTL",
+        "Optimistic version"
+      ],
+      "validation": "Prisma mapping plus Zod journey stage",
+      "tests": true,
+      "version": "Optimistic integer version",
+      "stability": "High within Shopify runtime",
+      "sage_compatibility": "Adapt into a portable commerce-context contract"
+    },
+    {
+      "name": "SearchCatalogInput",
+      "responsibility": "Request a short Shopify catalog search.",
+      "inputs": [
+        "query",
+        "category",
+        "filters",
+        "budget",
+        "availability",
+        "limit"
+      ],
+      "outputs": ["At most three normalized products", "Session patch"],
+      "source_of_truth": "Shopify Storefront MCP through catalog adapter",
+      "invariants": [
+        "Limit <= 3",
+        "Available inventory preferred",
+        "Validated before provider call"
+      ],
+      "validation": "Zod",
+      "tests": true,
+      "version": null,
+      "stability": "Medium",
+      "sage_compatibility": "Extract or merge with CatalogIntentConfig"
+    },
+    {
+      "name": "NormalizedCatalogProduct",
+      "responsibility": "Hide Shopify MCP wire differences from the widget and session.",
+      "inputs": ["MCP product payload"],
+      "outputs": ["Product, variants, price, availability, images, url"],
+      "source_of_truth": "Adapter normalization code",
+      "invariants": [
+        "Product facts must originate from Shopify",
+        "No model-invented price or stock"
+      ],
+      "validation": "Partial ad hoc normalization",
+      "tests": "Partial",
+      "version": null,
+      "stability": "Medium-low",
+      "sage_compatibility": "Extract a versioned contract"
+    },
+    {
+      "name": "UpdateCartInput",
+      "responsibility": "Add one confirmed exact variant and quantity to the session cart.",
+      "inputs": ["cartId", "productId", "variantId", "quantity", "confirmed"],
+      "outputs": ["Confirmation-required patch or Shopify cart result"],
+      "source_of_truth": "CommerceSession plus Shopify cart adapter",
+      "invariants": [
+        "confirmed must be true",
+        "Product and variant belong to the session",
+        "Variant is available",
+        "Cart id is bound",
+        "Second-turn confirmation matches exactly"
+      ],
+      "validation": "Zod plus registry guardrails",
+      "tests": true,
+      "version": null,
+      "stability": "High",
+      "sage_compatibility": "Direct"
+    },
+    {
+      "name": "KnowledgeSearchInput",
+      "responsibility": "Retrieve approved tenant knowledge with bounded output.",
+      "inputs": ["query", "limit", "maxCharacters"],
+      "outputs": ["Knowledge records or policy adapter fallback"],
+      "source_of_truth": "PostgreSQL FTS then Shopify policy MCP",
+      "invariants": ["Tenant scoped", "Bounded result count and characters"],
+      "validation": "Zod",
+      "tests": "Unit plus optional PostgreSQL integration",
+      "version": null,
+      "stability": "Medium",
+      "sage_compatibility": "Adapt with ingestion and provenance"
+    },
+    {
+      "name": "CommerceEvent",
+      "responsibility": "Persist sanitized operational and commerce events.",
+      "inputs": ["eventType", "payload", "requestId", "session references"],
+      "outputs": ["Append-style database record"],
+      "source_of_truth": "Supabase PostgreSQL",
+      "invariants": [
+        "Tenant scoped",
+        "Sensitive-key sanitizer",
+        "Request correlation"
+      ],
+      "validation": "Service-level normalization",
+      "tests": true,
+      "version": null,
+      "stability": "Medium",
+      "sage_compatibility": "Adapt after defining version and retention"
+    },
+    {
+      "name": "OAuthStateAndCustomerToken",
+      "responsibility": "Protect Customer Account OAuth and persist encrypted customer credentials.",
+      "inputs": ["State", "PKCE verifier", "OAuth tokens", "Expiration"],
+      "outputs": ["One-shot authorization state", "Encrypted token records"],
+      "source_of_truth": "Supabase PostgreSQL",
+      "invariants": [
+        "State stored as hash",
+        "Verifier and tokens encrypted",
+        "TTL",
+        "One-shot consumption",
+        "Tenant scope"
+      ],
+      "validation": "Service checks and Prisma",
+      "tests": true,
+      "version": null,
+      "stability": "High",
+      "sage_compatibility": "Direct for customer OAuth, separate from admin offline-token storage"
+    }
+  ],
+  "integrations": [
+    {
+      "name": "Shopify embedded admin",
+      "role": "Merchant application shell",
+      "status": "Implemented but blocked",
+      "configuration": [
+        "SHOPIFY_API_KEY",
+        "SHOPIFY_API_SECRET",
+        "SHOPIFY_APP_URL",
+        "SCOPES"
+      ],
+      "evidence": [
+        "shopify.app.toml",
+        "app/shopify.server.js",
+        "Broken iframe observed in Shopify Admin"
+      ],
+      "risk": "Installed app points to an expired Cloudflare origin"
+    },
+    {
+      "name": "Shopify App Proxy",
+      "role": "Signed storefront-to-app transport",
+      "status": "Active",
+      "configuration": ["shopify.app.toml app_proxy", "WIDGET_SIGNING_SECRET"],
+      "evidence": [
+        "app/security/app-proxy-context.server.js",
+        "app/routes/widget.bootstrap.jsx"
+      ],
+      "risk": "Requires correct Shopify release URLs"
+    },
+    {
+      "name": "Shopify Storefront MCP",
+      "role": "Catalog, product, and cart facts/actions",
+      "status": "Active",
+      "configuration": ["Canonical shop domain"],
+      "evidence": ["app/mcp-client.js", "Live Railway connection observed"],
+      "risk": "External tool contract and availability"
+    },
+    {
+      "name": "Shopify Customer Account MCP",
+      "role": "Customer account context and related tools",
+      "status": "Active",
+      "configuration": [
+        "REDIRECT_URL",
+        "OAUTH_STATE_TTL_SECONDS",
+        "TOKEN_ENCRYPTION_KEY"
+      ],
+      "evidence": [
+        "app/services/customer-account-discovery.server.js",
+        "Live Railway connection observed"
+      ],
+      "risk": "Current live OAuth E2E not verified"
+    },
+    {
+      "name": "Shopify Admin API",
+      "role": "App authentication and admin context",
+      "status": "Partial",
+      "configuration": ["Shopify session storage", "Narrow access scopes"],
+      "evidence": ["app/shopify.server.js", "app/auth.server.js"],
+      "risk": "Admin offline token rotation fields are not persisted"
+    },
+    {
+      "name": "Theme App Extension",
+      "role": "Storefront widget distribution",
+      "status": "Partial",
+      "configuration": ["extensions/chat-bubble/shopify.extension.toml"],
+      "evidence": [
+        "extensions/chat-bubble/",
+        "Previously observed Theme Editor embed"
+      ],
+      "risk": "Current Shopify release mapping unknown"
+    },
+    {
+      "name": "Anthropic",
+      "role": "Structured intent and tool-using response generation",
+      "status": "Implemented but blocked",
+      "configuration": [
+        "AI_PROVIDER",
+        "ANTHROPIC_API_KEY",
+        "ANTHROPIC_MODEL",
+        "LLM_TIMEOUT_MS"
+      ],
+      "evidence": [
+        "@anthropic-ai/sdk",
+        "app/services/llm-gateway.server.js",
+        "Live HTTP 400"
+      ],
+      "risk": "Single provider and current production failure"
+    },
+    {
+      "name": "OpenAI",
+      "role": "Potential alternative LLM",
+      "status": "Prepared only",
+      "configuration": ["OPENAI_API_KEY", "OPENAI_MODEL"],
+      "evidence": [".env.example only"],
+      "risk": "No SDK, adapter, or tests"
+    },
+    {
+      "name": "Kimi",
+      "role": "Potential alternative LLM",
+      "status": "Unknown",
+      "configuration": [],
+      "evidence": ["No repository implementation found"],
+      "risk": "No compatibility contract or operational plan"
+    },
+    {
+      "name": "Supabase PostgreSQL",
+      "role": "Durable multitenant data store",
+      "status": "Active",
+      "configuration": ["DATABASE_URL", "DIRECT_URL"],
+      "evidence": [
+        "PostgreSQL readiness HTTP 200",
+        "Project and migrations observed read-only"
+      ],
+      "risk": "Runtime role, grants, backups, and regional latency require verification"
+    },
+    {
+      "name": "Railway",
+      "role": "Production container hosting",
+      "status": "Active",
+      "configuration": ["railway.json", "Dockerfile", "PORT"],
+      "evidence": ["Active deployment", "Health HTTP 200"],
+      "risk": "One replica and no external monitoring proof"
+    },
+    {
+      "name": "Redis",
+      "role": "Future distributed rate limits and locks",
+      "status": "Documented only",
+      "configuration": [],
+      "evidence": [
+        "docs/architecture-target.md",
+        "docs/deployment/railway-supabase.md"
+      ],
+      "risk": "Current rate limiter is process-local"
+    },
+    {
+      "name": "UCP",
+      "role": "Future portable commerce protocol",
+      "status": "Documented only",
+      "configuration": [],
+      "evidence": ["docs/PRODUCT_ARCHITECTURE.md"],
+      "risk": "No current adapter"
+    },
+    {
+      "name": "Hydrogen",
+      "role": "Future headless/reactive commerce surface",
+      "status": "Documented only",
+      "configuration": [],
+      "evidence": [
+        "docs/EventSystem.md",
+        "../labs/hydrogen-intent-card/docs/hydrogen-study.md"
+      ],
+      "risk": "No code dependency"
+    },
+    {
+      "name": "PostgreSQL FTS",
+      "role": "Tenant knowledge retrieval",
+      "status": "Partial",
+      "configuration": ["Generated TSVECTOR", "GIN index"],
+      "evidence": ["Prisma migration", "app/services/knowledge.server.js"],
+      "risk": "No ingested knowledge or relevance evaluation"
+    },
+    {
+      "name": "pgvector or hybrid retrieval",
+      "role": "Future semantic retrieval",
+      "status": "Prepared only",
+      "configuration": [],
+      "evidence": ["Explicit unsupported branches in knowledge service"],
+      "risk": "No schema, provider, or tests"
+    },
+    {
+      "name": "Analytics and CRM connectors",
+      "role": "Future measurement and activation",
+      "status": "Prepared only",
+      "configuration": ["Seed toggles and internal events"],
+      "evidence": [
+        "docs/Integrations.md",
+        "app/services/analytics-event.server.js"
+      ],
+      "risk": "No consent, attribution, external sink, or connector"
+    },
+    {
+      "name": "Shopify Dev MCP",
+      "role": "Developer assistance",
+      "status": "Active",
+      "configuration": [".mcp.json", ".cursor/mcp.json"],
+      "evidence": ["One server named shopify-dev-mcp in each file"],
+      "risk": "Not part of the production shopper runtime"
+    },
+    {
+      "name": "Vercel",
+      "role": "No current role",
+      "status": "Unknown",
+      "configuration": [],
+      "evidence": ["No manifest or deployment found"],
+      "risk": "Do not assume deployment"
+    }
+  ],
+  "data_sources": [
+    {
+      "name": "Shopify catalog and inventory",
+      "origin": "Merchant Shopify store",
+      "owner": "Merchant and Shopify",
+      "storage": "Live MCP responses plus bounded CommerceSession snapshots",
+      "format": "JSON",
+      "lifetime": "Live request and commerce session",
+      "sensitivity": "Commercial",
+      "source_of_truth": "Shopify",
+      "reality": "Live in runtime, mocked in preview"
+    },
+    {
+      "name": "Shopify cart and checkout",
+      "origin": "Shopify",
+      "owner": "Shopper and merchant",
+      "storage": "Cart id, snapshot, and checkout URL in CommerceSession",
+      "format": "JSON and strings",
+      "lifetime": "CommerceSession TTL plus durable records",
+      "sensitivity": "High",
+      "source_of_truth": "Shopify",
+      "reality": "Implemented, live E2E not verified"
+    },
+    {
+      "name": "Merchant configuration",
+      "origin": "Application seed and merchant context",
+      "owner": "Merchant/application",
+      "storage": "Supabase MerchantConfig plus seed JSON",
+      "format": "Relational columns and JSONB",
+      "lifetime": "Durable and versioned",
+      "sensitivity": "Internal",
+      "source_of_truth": "Database for assistant/shopping; seed for other sections",
+      "reality": "Real but partial"
+    },
+    {
+      "name": "Conversations and messages",
+      "origin": "Shopper, Sage, and tool results",
+      "owner": "Merchant/application, subject to privacy policy",
+      "storage": "Supabase Conversation and Message tables",
+      "format": "Text and JSONB",
+      "lifetime": "No retention policy found",
+      "sensitivity": "Potentially personal",
+      "source_of_truth": "IntentCart runtime",
+      "reality": "Live records observed only through non-personal aggregates"
+    },
+    {
+      "name": "Commerce sessions and events",
+      "origin": "IntentCart orchestrator",
+      "owner": "Application/merchant",
+      "storage": "Supabase CommerceSession and CommerceEvent",
+      "format": "Relational and JSONB",
+      "lifetime": "Session TTL; event retention unknown",
+      "sensitivity": "Commerce and operational",
+      "source_of_truth": "IntentCart runtime",
+      "reality": "Live"
+    },
+    {
+      "name": "Customer OAuth tokens",
+      "origin": "Shopify Customer Accounts",
+      "owner": "Customer/Shopify",
+      "storage": "Encrypted Supabase records",
+      "format": "Ciphertext and expiration",
+      "lifetime": "Until expiration/replacement",
+      "sensitivity": "Secret",
+      "source_of_truth": "Shopify OAuth",
+      "reality": "Implementation and records exist; values were not read"
+    },
+    {
+      "name": "Knowledge",
+      "origin": "Future merchant documents and Shopify policy fallback",
+      "owner": "Merchant",
+      "storage": "Supabase source/document/chunk tables and PostgreSQL FTS",
+      "format": "Text, JSONB, TSVECTOR",
+      "lifetime": "Durable",
+      "sensitivity": "Potentially confidential",
+      "source_of_truth": "Merchant-approved data",
+      "reality": "Schema deployed; local knowledge tables observed empty"
+    },
+    {
+      "name": "Browser session identifiers",
+      "origin": "Widget",
+      "owner": "Browser session",
+      "storage": "sessionStorage",
+      "format": "UUID strings",
+      "lifetime": "Browser tab/session",
+      "sensitivity": "Pseudonymous",
+      "source_of_truth": "Widget",
+      "reality": "Implemented"
+    },
+    {
+      "name": "Preview products",
+      "origin": "Hard-coded local preview",
+      "owner": "Repository",
+      "storage": "preview/index.html",
+      "format": "JavaScript constants",
+      "lifetime": "File version",
+      "sensitivity": "None",
+      "source_of_truth": "Fixture only",
+      "reality": "Mock"
+    },
+    {
+      "name": "Railway logs",
+      "origin": "Application and platform",
+      "owner": "Operator/platform",
+      "storage": "Railway logs",
+      "format": "Structured and text logs",
+      "lifetime": "Unknown",
+      "sensitivity": "Potentially sensitive",
+      "source_of_truth": "Operational platform",
+      "reality": "Live; complete request URLs with transient auth parameters were observed"
+    }
+  ],
+  "tests": [
+    {
+      "command": "npm test",
+      "date": "2026-08-01",
+      "result": "PASS",
+      "counts": "35 passed, 4 skipped, 39 total; 6 files passed, 1 skipped",
+      "limits": "Prisma is mocked except for skipped integration suite"
+    },
+    {
+      "command": "npm run typecheck",
+      "date": "2026-08-01",
+      "result": "PASS",
+      "counts": "React Router typegen and tsc --noEmit",
+      "limits": "Static typing only"
+    },
+    {
+      "command": "npm run lint",
+      "date": "2026-08-01",
+      "result": "PASS",
+      "counts": "No ESLint error",
+      "limits": "Uses local cache"
+    },
+    {
+      "command": "npm run build",
+      "date": "2026-08-01",
+      "result": "PASS",
+      "counts": "338 client modules and 70 SSR modules transformed",
+      "limits": "React Router 8 future-flag warnings"
+    },
+    {
+      "command": "npm run format:check",
+      "date": "2026-08-01",
+      "result": "FAIL",
+      "counts": "86 files reported by Prettier",
+      "limits": "No files were formatted during audit"
+    },
+    {
+      "command": "npm run db:generate",
+      "date": "2026-08-01",
+      "result": "PASS",
+      "counts": "Prisma Client 6.19.3 generated",
+      "limits": "Loaded local env without printing values"
+    },
+    {
+      "command": "npm run db:validate",
+      "date": "2026-08-01",
+      "result": "FAIL",
+      "counts": "P1012: DIRECT_URL absent",
+      "limits": "Local environment incomplete; no environment variable was changed"
+    },
+    {
+      "command": "GET /health",
+      "date": "2026-08-01",
+      "result": "PASS",
+      "counts": "HTTP 200",
+      "limits": "Liveness only"
+    },
+    {
+      "command": "GET /health/db",
+      "date": "2026-08-01",
+      "result": "PASS",
+      "counts": "HTTP 200, database ready",
+      "limits": "Readiness query only"
+    },
+    {
+      "command": "PostgreSQL integration suite",
+      "date": "2026-08-01",
+      "result": "SKIPPED",
+      "counts": "4 tests skipped",
+      "limits": "Requires TEST_DATABASE_URL exactly equal to DATABASE_URL and a disposable database"
+    },
+    {
+      "command": "Live Railway commerce observation",
+      "date": "2026-07-31",
+      "result": "FAIL",
+      "counts": "Shopify MCP connections succeeded; Anthropic returned HTTP 400",
+      "limits": "Exact provider error cause unknown"
+    },
+    {
+      "command": "Current Shopify Admin observation",
+      "date": "2026-07-31",
+      "result": "FAIL",
+      "counts": "Embedded iframe origin did not resolve",
+      "limits": "No configuration mutation performed"
+    }
+  ],
+  "deployments": [
+    {
+      "name": "Railway production service",
+      "status": "Verified live",
+      "platform": "Railway",
+      "url": "https://shop-chat-agent-production-3220.up.railway.app",
+      "revision": "4f92c75257074a3e28ec3c0301043c93bf614933",
+      "evidence": [
+        "Active deployment observed",
+        "GET /health HTTP 200",
+        "GET /health/db HTTP 200"
+      ],
+      "limits": [
+        "One replica",
+        "Revision one configuration commit behind HEAD",
+        "No external monitoring proof"
+      ]
+    },
+    {
+      "name": "Supabase production database",
+      "status": "Verified live",
+      "platform": "Supabase",
+      "url": "https://supabase.com/dashboard/project/nrqebenclbxipvyzbiol",
+      "revision": "Eight local migrations applied",
+      "evidence": [
+        "ACTIVE_HEALTHY project",
+        "PostgreSQL 17.6",
+        "Readiness HTTP 200",
+        "Tables and RLS inspected read-only"
+      ],
+      "limits": [
+        "Backups/PITR not verified",
+        "Runtime role and exact grants not verified",
+        "Region differs from Railway"
+      ]
+    },
+    {
+      "name": "Shopify installed application",
+      "status": "Previously deployed",
+      "platform": "Shopify",
+      "url": null,
+      "revision": "Unknown Shopify app release",
+      "evidence": [
+        "IntentCart installed in SHOP DEV",
+        "Theme embed previously observed"
+      ],
+      "limits": [
+        "Current embedded origin is an expired Cloudflare tunnel",
+        "Current extension release mapping unknown",
+        "Storefront is password protected"
+      ]
+    }
+  ],
+  "recoverable_assets": [
+    {
+      "asset": "App Proxy and origin-bound widget token",
+      "type": "Security/runtime",
+      "maturity": "Working",
+      "tests": "Yes",
+      "dependencies": ["Shopify App Proxy", "HMAC"],
+      "decision": "PROMOTE AS-IS",
+      "destination": "Sage Shopify storefront runtime",
+      "justification": "Clear, bounded, and tested trust boundary"
+    },
+    {
+      "asset": "MerchantContext and tenant-scoped queries",
+      "type": "Multitenant contract",
+      "maturity": "Working",
+      "tests": "Yes",
+      "dependencies": ["Prisma"],
+      "decision": "PROMOTE AS-IS",
+      "destination": "Sage Shopify core",
+      "justification": "Prevents client-selected tenant access"
+    },
+    {
+      "asset": "Public and tool Zod schemas",
+      "type": "Contracts",
+      "maturity": "Working",
+      "tests": "Yes",
+      "dependencies": ["Zod"],
+      "decision": "PROMOTE AS-IS",
+      "destination": "Sage contract package",
+      "justification": "Strict, bounded, and exercised"
+    },
+    {
+      "asset": "Two-turn exact cart confirmation",
+      "type": "Commerce guardrail",
+      "maturity": "Working with limitations",
+      "tests": "Yes",
+      "dependencies": ["CommerceSession", "Shopify cart adapter"],
+      "decision": "PROMOTE AS-IS",
+      "destination": "Sage commerce policy engine",
+      "justification": "Core safety invariant with explicit product, variant, and quantity matching"
+    },
+    {
+      "asset": "CommerceSession state machine",
+      "type": "Domain model",
+      "maturity": "Working",
+      "tests": "Yes",
+      "dependencies": ["Prisma", "PostgreSQL"],
+      "decision": "ADAPT",
+      "destination": "Portable Sage commerce context",
+      "justification": "Strong Shopify implementation; needs a versioned cross-surface contract"
+    },
+    {
+      "asset": "Validated Shopify tool registry",
+      "type": "Domain adapters",
+      "maturity": "Working with limitations",
+      "tests": "Yes",
+      "dependencies": ["Shopify MCP"],
+      "decision": "ADAPT",
+      "destination": "Sage tool runtime",
+      "justification": "Useful execution boundary; product result contract needs extraction"
+    },
+    {
+      "asset": "Four-layout widget",
+      "type": "Storefront UI",
+      "maturity": "Working with limitations",
+      "tests": "No visual automation",
+      "dependencies": ["Theme App Extension"],
+      "decision": "ADAPT",
+      "destination": "Sage Shopify surfaces",
+      "justification": "Feature-complete modes but large untyped JS/CSS and current release uncertainty"
+    },
+    {
+      "asset": "Merchant admin information architecture",
+      "type": "UX",
+      "maturity": "Partial",
+      "tests": "Build only",
+      "dependencies": ["Shopify Admin"],
+      "decision": "EXTRACT LEARNING",
+      "destination": "Sage merchant dashboard",
+      "justification": "Good compact navigation; current content is mostly read-only"
+    },
+    {
+      "asset": "MerchantConfigSchema",
+      "type": "Contract",
+      "maturity": "Partial",
+      "tests": "Partial",
+      "dependencies": ["Zod", "Prisma"],
+      "decision": "EXTRACT CONTRACT",
+      "destination": "Sage merchant configuration",
+      "justification": "Broad shape exists but persistence and ownership are incomplete"
+    },
+    {
+      "asset": "LLM gateway interface",
+      "type": "Provider port",
+      "maturity": "Partial",
+      "tests": "Mocked",
+      "dependencies": ["Anthropic"],
+      "decision": "EXTRACT CONTRACT",
+      "destination": "Sage provider registry",
+      "justification": "Boundary is useful; implementation is still Anthropic-only"
+    },
+    {
+      "asset": "Anthropic adapter implementation",
+      "type": "LLM provider",
+      "maturity": "Implemented but blocked",
+      "tests": "Mocked",
+      "dependencies": ["Anthropic SDK"],
+      "decision": "ADAPT",
+      "destination": "Sage Anthropic provider",
+      "justification": "Needs live diagnosis and isolation behind a real adapter"
+    },
+    {
+      "asset": "PostgreSQL FTS knowledge service",
+      "type": "Knowledge",
+      "maturity": "Partial",
+      "tests": "Optional integration",
+      "dependencies": ["PostgreSQL"],
+      "decision": "ADAPT",
+      "destination": "Sage knowledge layer",
+      "justification": "Tenant-safe foundation; ingestion and provenance are missing"
+    },
+    {
+      "asset": "Static widget preview",
+      "type": "Mock/demo",
+      "maturity": "Mocked",
+      "tests": "Manual",
+      "dependencies": [],
+      "decision": "KEEP ISOLATED",
+      "destination": "Widget design lab",
+      "justification": "Useful design harness, not production evidence"
+    },
+    {
+      "asset": "UCP and Hydrogen documents",
+      "type": "Architecture learning",
+      "maturity": "Documented only",
+      "tests": "No",
+      "dependencies": [],
+      "decision": "NEEDS COMPARISON",
+      "destination": "Future Sage portability design",
+      "justification": "Must be reconciled with dedicated lab audits before adoption"
+    },
+    {
+      "asset": "Legacy JSON/cache flow documentation",
+      "type": "Documentation",
+      "maturity": "Deprecated",
+      "tests": "No",
+      "dependencies": [],
+      "decision": "ARCHIVE",
+      "destination": "Historical record",
+      "justification": "Contradicts the current Prisma and orchestrator implementation"
+    },
+    {
+      "asset": "Legacy local SQLite database",
+      "type": "Local data",
+      "maturity": "Deprecated",
+      "tests": "No",
+      "dependencies": ["SQLite"],
+      "decision": "ARCHIVE",
+      "destination": null,
+      "justification": "Current schema and deployment use PostgreSQL"
+    }
+  ],
+  "overlaps": [
+    {
+      "space": "shop-chat-agent-work",
+      "relation": "Current audited repository and source of the Railway deployment",
+      "relation_type": "real code dependency",
+      "confidence": "High"
+    },
+    {
+      "space": "../labs/catalog-kit-intent-card",
+      "relation": "Provides CatalogIntentConfig, ShoppingIntentState, CatalogProduct, ranking, and local cart contracts",
+      "relation_type": "similar contract with no code dependency",
+      "confidence": "High"
+    },
+    {
+      "space": "../labs/magpie-intent-finder",
+      "relation": "Provides VerticalConfig, IntentProfile, SearchResult, and MoreLikeSeed research",
+      "relation_type": "conceptual overlap with no code dependency",
+      "confidence": "High"
+    },
+    {
+      "space": "../apps/web/app/intent-card",
+      "relation": "Shopper demo with chat, intent state, product surfaces, and mock cart",
+      "relation_type": "UX overlap and fixture-level similarity",
+      "confidence": "High"
+    },
+    {
+      "space": "../labs/hydrogen-intent-card",
+      "relation": "Documentation-only Hydrogen study and audit",
+      "relation_type": "documentary reference",
+      "confidence": "High"
+    },
+    {
+      "space": "Noven",
+      "relation": "Validation vertical used by neighboring labs but not coupled into current IntentCart runtime",
+      "relation_type": "shared product research context",
+      "confidence": "High"
+    },
+    {
+      "space": "Sage",
+      "relation": "Shopper-facing agent name and intended product runtime",
+      "relation_type": "direct product identity",
+      "confidence": "High"
+    },
+    {
+      "space": "UCP and catalog-kit",
+      "relation": "Future portability and external study references",
+      "relation_type": "documentary and conceptual only",
+      "confidence": "High"
+    }
+  ],
+  "risks": [
+    {
+      "priority": "P0 — bloquant",
+      "name": "Shopify offline access-token rotation persistence",
+      "description": "Session schema does not store refresh-token fields required for expiring offline tokens. Blocking for a new public multi-merchant app; actual distribution type remains unknown.",
+      "evidence": [
+        "prisma/schema.prisma Session model",
+        "Shopify official offline-token documentation"
+      ]
+    },
+    {
+      "priority": "P0 — bloquant",
+      "name": "Live Anthropic failure",
+      "description": "The production commerce turn reaches MCP but Anthropic returns HTTP 400.",
+      "evidence": ["Read-only Railway log observation"]
+    },
+    {
+      "priority": "P0 — bloquant",
+      "name": "Broken embedded Shopify admin",
+      "description": "The installed application iframe points to an expired Cloudflare tunnel instead of Railway.",
+      "evidence": ["Read-only Shopify Admin observation"]
+    },
+    {
+      "priority": "P1 — important",
+      "name": "Sensitive transient parameters in logs",
+      "description": "Complete request URLs with transient authentication or signature parameters were visible in Railway logs.",
+      "evidence": ["Read-only Railway log observation"]
+    },
+    {
+      "priority": "P1 — important",
+      "name": "No high availability",
+      "description": "One replica, process-local rate limiting, no Redis, worker, distributed lock, or external alerting proof.",
+      "evidence": [
+        "Railway service details",
+        "app/security/rate-limit.server.js",
+        "architecture docs"
+      ]
+    },
+    {
+      "priority": "P1 — important",
+      "name": "Cross-region latency",
+      "description": "Railway runs in US West while Supabase runs in Northern Europe.",
+      "evidence": ["Read-only platform project details"]
+    },
+    {
+      "priority": "P1 — important",
+      "name": "No full commerce E2E",
+      "description": "No current installation-to-checkout test proves the live shopper journey.",
+      "evidence": ["Test inventory", "docs/testing.md manual checklist"]
+    },
+    {
+      "priority": "P1 — important",
+      "name": "Read-only and partially persisted merchant admin",
+      "description": "No admin action saves configuration and several schema sections always come from the seed.",
+      "evidence": ["app/routes/app*.jsx", "app/merchant/merchant.server.js"]
+    },
+    {
+      "priority": "P1 — important",
+      "name": "No versioned CI or immutable release tag",
+      "description": "Production is deployed from a feature branch and no CI workflow or Git tag was found.",
+      "evidence": ["Git branch and tag inspection", "No .github workflow"]
+    },
+    {
+      "priority": "P1 — important",
+      "name": "Database operations not fully verified",
+      "description": "Runtime role, exact table grants, backups, PITR, restore procedure, and RPO/RTO were not proven.",
+      "evidence": ["Supabase read-only inspection", "Local migrations"]
+    },
+    {
+      "priority": "P1 — important",
+      "name": "Undefined privacy and retention",
+      "description": "No clear retention and consent policy was found for messages, events, tokens, and logs.",
+      "evidence": ["Schema and documentation review"]
+    },
+    {
+      "priority": "P2 — amelioration",
+      "name": "Formatting debt",
+      "description": "Prettier reports 86 files.",
+      "evidence": ["npm run format:check"]
+    },
+    {
+      "priority": "P2 — amelioration",
+      "name": "Incomplete local database environment",
+      "description": "Prisma validation fails because DIRECT_URL is absent locally.",
+      "evidence": ["npm run db:validate"]
+    },
+    {
+      "priority": "P2 — amelioration",
+      "name": "Provider configuration exceeds implementation",
+      "description": "OpenAI variables exist but only Anthropic is implemented; Kimi is absent.",
+      "evidence": [
+        ".env.example",
+        "package.json",
+        "app/services/llm-gateway.server.js"
+      ]
+    },
+    {
+      "priority": "P2 — amelioration",
+      "name": "Documentation drift",
+      "description": "Several documents still describe JSON storage, old chat paths, seven migrations, and no deployment.",
+      "evidence": ["Documentation comparison table"]
+    },
+    {
+      "priority": "P2 — amelioration",
+      "name": "No visual, load, or recommendation evaluation",
+      "description": "The repository lacks Playwright, visual regression, load tests, and a relevance benchmark.",
+      "evidence": ["Test and resource inventory"]
+    },
+    {
+      "priority": "P3 — information",
+      "name": "React Router 8 future flags",
+      "description": "The production build reports upcoming middleware, route splitting, Vite API, request, and URL changes.",
+      "evidence": ["npm run build output"]
+    }
+  ],
+  "open_questions": [
+    "Is the Shopify app public, custom, or limited-distribution?",
+    "What exact Anthropic error detail causes the live HTTP 400?",
+    "Which Shopify app and extension release maps to deployed commit 4f92c75?",
+    "Why does Shopify Admin still use a Cloudflare tunnel while the tracked manifest uses Railway?",
+    "Which PostgreSQL role does Prisma use and what exact table grants are active?",
+    "What Supabase backup, PITR, restore, RPO, and RTO policy is active?",
+    "What retention and consent rules apply to conversations, events, tokens, and logs?",
+    "Which LLM providers are required for the next pilot: Anthropic, OpenAI, Kimi, or a subset?",
+    "Which intent and product contracts should become canonical after the neighboring lab comparisons?",
+    "When should codex/intentcart-admin-freeze merge to main and receive an immutable release tag?",
+    "Does a separate staging environment exist outside the resources inspected?",
+    "Which dataset and KPI will prove an improvement over search or a static quiz?"
+  ],
+  "recommended_decision": "ADAPT the current repository as Sage's Shopify runtime foundation. Promote the trust boundary, tenant context, strict schemas, and cart-confirmation guardrail; fix the three P0 issues and run a complete live E2E before calling it multi-merchant production."
+}

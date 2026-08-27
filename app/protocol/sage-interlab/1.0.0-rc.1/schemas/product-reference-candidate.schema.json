@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:magpie-lab:product-reference-candidate:0.1",
+  "title": "ProductReference candidate v0.1",
+  "description": "Temporary opaque bridge pending acceptance of a catalog-owned ProductReference.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "version", "productId", "sourceRef"],
+  "properties": {
+    "kind": { "const": "ProductReference" },
+    "version": { "const": "0.1-candidate" },
+    "productId": { "$ref": "#/$defs/opaqueRef" },
+    "sourceRef": { "$ref": "#/$defs/opaqueRef" }
+  },
+  "$defs": {
+    "opaqueRef": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9:_./-]{0,127}$"
+    }
+  }
+}

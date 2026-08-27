@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:magpie-lab:experience-action-request:1.0",
+  "title": "ExperienceActionRequest v1",
+  "description": "Experience-owned candidate request checked dynamically against DecisionExperienceInput.allowedNextActions.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "version", "decisionId", "stateRevision", "actionId", "actionType", "arguments"],
+  "properties": {
+    "kind": { "const": "ExperienceActionRequest" },
+    "version": { "const": "1.0" },
+    "decisionId": { "$ref": "#/$defs/opaqueRef" },
+    "stateRevision": { "type": "integer", "minimum": 0 },
+    "actionId": { "$ref": "#/$defs/opaqueRef" },
+    "actionType": {
+      "enum": ["submit_intent", "compare_products", "select_product", "ask_about_product", "select_option", "set_candidate_quantity", "request_cart_add", "request_checkout_handoff"]
+    },
+    "arguments": { "type": "object" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "actionType": { "const": "submit_intent" } } },
+      "then": { "properties": { "arguments": { "$ref": "#/$defs/structuredInputArgs" } } }
+    },
+    {
+      "if": { "properties": { "actionType": { "const": "compare_products" } } },
+      "then": { "properties": { "arguments": { "$ref": "#/$defs/compareArgs" } } }
+    },
+    {
+      "if": { "properties": { "actionType": { "enum": ["select_product", "ask_about_product"] } } },
+      "then": { "properties": { "arguments": { "$ref": "#/$defs/productArgs" } } }
+    },
+    {
+      "if": { "properties": { "actionType": { "const": "select_option" } } },
+      "then": { "properties": { "arguments": { "$ref": "#/$defs/optionArgs" } } }
+    },
+    {
+      "if": { "properties": { "actionType": { "const": "set_candidate_quantity" } } },
+      "then": { "properties": { "arguments": { "$ref": "#/$defs/quantityArgs" } } }
+    },
+    {
+      "if": { "properties": { "actionType": { "enum": ["request_cart_add", "request_checkout_handoff"] } } },
+      "then": { "properties": { "arguments": { "$ref": "#/$defs/handoffArgs" } } }
+    }
+  ],
+  "$defs": {
+    "opaqueRef": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9:_./-]{0,127}$"
+    },
+    "structuredInputArgs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["structuredInputRef"],
+      "properties": { "structuredInputRef": { "$ref": "#/$defs/opaqueRef" } }
+    },
+    "compareArgs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["productRefs"],
+      "properties": {
+        "productRefs": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/opaqueRef" }
+        }
+      }
+    },
+    "productArgs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["productRef"],
+      "properties": { "productRef": { "$ref": "#/$defs/opaqueRef" } }
+    },
+    "optionArgs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["optionName", "preferredValue"],
+      "properties": {
+        "optionName": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "preferredValue": { "type": "string", "minLength": 1, "maxLength": 120 }
+      }
+    },
+    "quantityArgs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["quantity"],
+      "properties": { "quantity": { "type": "integer", "minimum": 1, "maximum": 100 } }
+    },
+    "handoffArgs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["handoffRef"],
+      "properties": { "handoffRef": { "$ref": "#/$defs/opaqueRef" } }
+    }
+  }
+}

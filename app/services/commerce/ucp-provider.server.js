@@ -9,7 +9,6 @@ export function createUcpProvider({
   client,
   policySearch,
   checkoutEnabled = false,
-  checkoutCompleteEnabled = false,
   clock = () => new Date(),
 } = {}) {
   if (!client) throw new Error("UCP client is required");
@@ -59,11 +58,7 @@ export function createUcpProvider({
           checkoutEnabled &&
           Boolean(snapshot) &&
           client.hasTool("update_checkout"),
-        checkoutComplete:
-          checkoutEnabled &&
-          checkoutCompleteEnabled &&
-          Boolean(snapshot) &&
-          client.hasTool("complete_checkout"),
+        checkoutComplete: false,
       });
     },
 
@@ -150,36 +145,45 @@ export function createUcpProvider({
 
       if (!cartId) {
         requireCapability(provider.capabilities.cartCreate, "cart create");
-        const result = await client.callTool("create_cart", {
-          cart: compact({
-            line_items: [writeLine(variantId, quantity)],
-            context: toUcpContext(buyerContext),
-          }),
-        });
+        const result = await client.callTool(
+          "create_cart",
+          {
+            cart: compact({
+              line_items: [writeLine(variantId, quantity)],
+              context: toUcpContext(buyerContext),
+            }),
+          },
+          { idempotencyKey },
+        );
         return cartResult("create_cart", result, interpreter);
       }
 
       requireCapability(provider.capabilities.cartUpdate, "cart update");
       const current = await provider.getCart({ cartId });
       const fullCart = buildFullCartUpdate(current.cart, variantId, quantity);
-      const result = await client.callTool("update_cart", {
-        id: cartId,
-        cart: fullCart,
-      });
+      const result = await client.callTool(
+        "update_cart",
+        {
+          id: cartId,
+          cart: fullCart,
+        },
+        { idempotencyKey },
+      );
       return cartResult("update_cart", result, interpreter);
     },
 
-    async createCheckoutHandoff({ cartId, cartSnapshot }) {
+    async createCheckoutHandoff({ cartId, cartSnapshot, idempotencyKey }) {
       await requireReady(provider);
       if (checkoutEnabled) {
         requireCapability(
           provider.capabilities.checkoutCreate,
           "checkout create",
         );
+        assertInternalIdempotencyKey(idempotencyKey);
         const result = await client.callTool(
           "create_checkout",
           { cart_id: cartId },
-          { requireAuthorization: true },
+          { idempotencyKey, requireAuthorization: true },
         );
         return checkoutResult("create_checkout", cartId, result);
       }
@@ -223,25 +227,12 @@ export function createUcpProvider({
       return checkoutResult("update_checkout", null, result);
     },
 
-    async completeCheckout({ checkoutId, checkout, idempotencyKey }) {
+    async completeCheckout() {
       await requireReady(provider);
       requireCapability(
         provider.capabilities.checkoutComplete,
         "checkout completion",
       );
-      if (!isUuid(idempotencyKey)) {
-        throw new CommerceProviderError(
-          "UCP_IDEMPOTENCY_KEY_REQUIRED",
-          "Checkout completion requires a UUID idempotency key",
-          { status: 400 },
-        );
-      }
-      const result = await client.callTool(
-        "complete_checkout",
-        { id: checkoutId, checkout },
-        { idempotencyKey, requireAuthorization: true },
-      );
-      return checkoutResult("complete_checkout", null, result);
     },
   };
 
@@ -287,8 +278,15 @@ function normalizeProduct(product, clock) {
           title: String(variant.title || ""),
           price: displayMoney(variant.price),
           currency: variant.price?.currency || "",
+          unitPrice: normalizeMinorMoney(variant.price),
           available:
             variant.availability?.available ?? variant.available ?? null,
+          quantityAvailable:
+            variant.quantityAvailable ??
+            variant.quantity_available ??
+            variant.availableQuantity ??
+            variant.availability?.quantity ??
+            null,
           selected_options: (variant.options || []).map(
             (option) =>
               `${option.name || "Option"}: ${option.label || option.value || ""}`,
@@ -326,6 +324,19 @@ function normalizeProduct(product, clock) {
       canonicalUrl: product.url || null,
     },
   };
+}
+
+function normalizeMinorMoney(value) {
+  const amountMinor = Number(value?.amount);
+  const currency = String(value?.currency || "").toUpperCase();
+  if (
+    !Number.isSafeInteger(amountMinor) ||
+    amountMinor < 0 ||
+    !/^[A-Z]{3}$/.test(currency)
+  ) {
+    return null;
+  }
+  return { amountMinor, currency };
 }
 
 function cartResult(toolName, result, interpreter) {
@@ -470,10 +481,4 @@ function assertInternalIdempotencyKey(value) {
       { status: 400 },
     );
   }
-}
-
-function isUuid(value) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    String(value || ""),
-  );
 }

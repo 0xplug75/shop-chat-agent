@@ -1,0 +1,4 @@
+interface:
+  display_name: "Theme App Extension Workflow"
+  short_description: "Build and verify IntentCart theme surfaces safely"
+  default_prompt: "Inspect or change the IntentCart Theme App Extension while keeping commerce logic in the server runtime."

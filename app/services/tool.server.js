@@ -26,14 +26,36 @@ export function processProductSearchResult(toolResponse) {
 
 function formatProductData(product) {
   const variants = Array.isArray(product.variants)
-    ? product.variants.map((variant) => ({
-        id: String(variant.id || variant.variant_id || ""),
-        title: variant.title || variant.name || "",
-        price: formatMoney(variant.price),
-        currency: variant.currency || variant.price?.currency || product.price_range?.min?.currency || "",
-        available: variant.available ?? variant.available_for_sale ?? variant.availability?.available ?? null,
-        selected_options: normalizeSelectedOptions(variant.selected_options || variant.options || [])
-      })).filter((variant) => variant.id)
+    ? product.variants
+        .map((variant) => ({
+          id: String(variant.id || variant.variant_id || ""),
+          title: variant.title || variant.name || "",
+          price: formatMoney(variant.price),
+          currency:
+            variant.currency ||
+            variant.price?.currency ||
+            product.price_range?.min?.currency ||
+            "",
+          unitPrice: normalizeDecimalMoney(
+            variant.price,
+            variant.currency || product.price_range?.min?.currency,
+          ),
+          available:
+            variant.available ??
+            variant.available_for_sale ??
+            variant.availability?.available ??
+            null,
+          quantityAvailable:
+            variant.quantityAvailable ??
+            variant.quantity_available ??
+            variant.availableQuantity ??
+            variant.availability?.quantity ??
+            null,
+          selected_options: normalizeSelectedOptions(
+            variant.selected_options || variant.options || [],
+          ),
+        }))
+        .filter((variant) => variant.id)
     : [];
   const id = String(product.product_id || product.id || "");
 
@@ -50,9 +72,12 @@ function formatProductData(product) {
     url: product.url || "",
     options: normalizeProductOptions(product.options || []),
     variants,
-    available: product.available ?? product.available_for_sale ?? variants.some((variant) => variant.available === true),
+    available:
+      product.available ??
+      product.available_for_sale ??
+      variants.some((variant) => variant.available === true),
     rating: product.rating || null,
-    tags: product.tags || []
+    tags: product.tags || [],
   };
 }
 
@@ -64,32 +89,57 @@ function normalizeProductOptions(options) {
       name: formatOptionValue(option?.name) || "Option",
       values: Array.isArray(option?.values)
         ? option.values.map(formatOptionValue).filter(Boolean)
-        : []
+        : [],
     };
   });
 }
 
 function normalizeSelectedOptions(options) {
   if (!Array.isArray(options)) return [];
-  return options.map((option) => {
-    if (typeof option === "string") return option;
-    const name = formatOptionValue(option?.name) || "Option";
-    const value = formatOptionValue(option?.label || option?.value || option?.name || option);
-    return value ? `${name}: ${value}` : name;
-  }).filter(Boolean);
+  return options
+    .map((option) => {
+      if (typeof option === "string") return option;
+      const name = formatOptionValue(option?.name) || "Option";
+      const value = formatOptionValue(
+        option?.label || option?.value || option?.name || option,
+      );
+      return value ? `${name}: ${value}` : name;
+    })
+    .filter(Boolean);
 }
 
 function formatOptionValue(value) {
   if (value === null || value === undefined) return "";
-  if (typeof value === "string" || typeof value === "number") return String(value);
+  if (typeof value === "string" || typeof value === "number")
+    return String(value);
   return value.label || value.name || value.value || value.title || "";
 }
 
 function formatMoney(money) {
   if (money === null || money === undefined) return "";
-  if (typeof money === "string" || typeof money === "number") return String(money);
+  if (typeof money === "string" || typeof money === "number")
+    return String(money);
   if (money.amount === null || money.amount === undefined) return "";
   return `${money.currency || ""} ${money.amount}`.trim();
+}
+
+function normalizeDecimalMoney(value, fallbackCurrency) {
+  if (value === null || value === undefined) return null;
+  const amount = typeof value === "object" ? value.amount : value;
+  const currency = String(
+    (typeof value === "object" ? value.currency || value.currencyCode : null) ||
+      fallbackCurrency ||
+      "",
+  ).toUpperCase();
+  if (!/^[A-Z]{3}$/.test(currency)) return null;
+  const numeric = Number(amount);
+  if (!Number.isFinite(numeric) || numeric < 0) return null;
+  const digits = new Intl.NumberFormat("en", {
+    style: "currency",
+    currency,
+  }).resolvedOptions().maximumFractionDigits;
+  const amountMinor = Math.round(numeric * 10 ** digits);
+  return Number.isSafeInteger(amountMinor) ? { amountMinor, currency } : null;
 }
 
 function getDescriptionText(description) {
@@ -99,5 +149,8 @@ function getDescriptionText(description) {
 }
 
 function stripHtml(value) {
-  return String(value).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  return String(value)
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }

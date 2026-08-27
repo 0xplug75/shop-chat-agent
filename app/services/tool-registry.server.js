@@ -44,14 +44,31 @@ export function createToolRegistry({
     knowledgeService,
     mutationCoordinator,
   });
+  const executeDefinition = async (definition, input, execution) => {
+    const parsed = definition.schema.safeParse(input);
+    if (!parsed.success) {
+      throw new ToolExecutionError(
+        "INVALID_TOOL_INPUT",
+        `Invalid input for ${definition.name}`,
+        {
+          details: formatZodError(parsed.error),
+        },
+      );
+    }
+
+    const result = await definition.handler(parsed.data, execution);
+    return { ...result, provider: provider.id || "legacy" };
+  };
 
   return {
     listModelTools() {
-      return definitions.map(({ name, description, inputSchema }) => ({
-        name,
-        description,
-        input_schema: inputSchema,
-      }));
+      return definitions
+        .filter((definition) => definition.modelCallable !== false)
+        .map(({ name, description, inputSchema }) => ({
+          name,
+          description,
+          input_schema: inputSchema,
+        }));
     },
 
     async execute(name, input, execution) {
@@ -64,19 +81,19 @@ export function createToolRegistry({
         );
       }
 
-      const parsed = definition.schema.safeParse(input);
-      if (!parsed.success) {
+      return executeDefinition(definition, input, execution);
+    },
+
+    async executeModelTool(name, input, execution) {
+      const definition = definitions.find((item) => item.name === name);
+      if (!definition || definition.modelCallable === false) {
         throw new ToolExecutionError(
-          "INVALID_TOOL_INPUT",
-          `Invalid input for ${name}`,
-          {
-            details: formatZodError(parsed.error),
-          },
+          "TOOL_NOT_ALLOWED",
+          `Tool ${name} is not available to the language model`,
+          { status: 403 },
         );
       }
-
-      const result = await definition.handler(parsed.data, execution);
-      return { ...result, provider: provider.id || "legacy" };
+      return executeDefinition(definition, input, execution);
     },
   };
 }
@@ -267,6 +284,7 @@ function createDefinitions(adapters) {
       },
     },
     {
+      modelCallable: false,
       name: "update_cart",
       description:
         "Add a confirmed exact product variant and quantity to Shopify cart. Never call before explicit shopper confirmation.",
@@ -437,6 +455,7 @@ function createDefinitions(adapters) {
       },
     },
     {
+      modelCallable: false,
       name: "create_checkout_handoff",
       description:
         "Return Shopify's official checkout handoff for the current confirmed cart.",

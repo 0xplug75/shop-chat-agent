@@ -1,0 +1,193 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:magpie-lab:commerce-result-envelope:1.0-candidate",
+  "title": "CommerceResultEnvelope v1 owner-review candidate",
+  "description": "Candidate mirror for Shopify Commerce Runtime review. Magpie does not own or produce this result.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "version", "resultId", "handoffId", "correlationId", "occurredAt", "result"],
+  "properties": {
+    "kind": { "const": "CommerceResultEnvelope" },
+    "version": { "const": "1.0" },
+    "resultId": { "$ref": "#/$defs/opaqueRef" },
+    "handoffId": { "$ref": "#/$defs/opaqueRef" },
+    "correlationId": { "$ref": "#/$defs/opaqueRef" },
+    "occurredAt": { "$ref": "#/$defs/timestamp" },
+    "result": {
+      "oneOf": [
+        { "$ref": "#/$defs/denied" },
+        { "$ref": "#/$defs/confirmationRequired" },
+        { "$ref": "#/$defs/confirmationDeclined" },
+        { "$ref": "#/$defs/confirmationExpired" },
+        { "$ref": "#/$defs/staleState" },
+        { "$ref": "#/$defs/staleCart" },
+        { "$ref": "#/$defs/invalidVariant" },
+        { "$ref": "#/$defs/invalidQuantity" },
+        { "$ref": "#/$defs/priceChanged" },
+        { "$ref": "#/$defs/unavailable" },
+        { "$ref": "#/$defs/failedBeforeMutation" },
+        { "$ref": "#/$defs/outcomeUnknown" },
+        { "$ref": "#/$defs/succeededAuthoritative" }
+      ]
+    }
+  },
+  "$defs": {
+    "opaqueRef": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9:_./-]{0,127}$"
+    },
+    "code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "timestamp": { "type": "string", "format": "date-time", "maxLength": 64 },
+    "money": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["amountMinor", "currency"],
+      "properties": {
+        "amountMinor": { "type": "integer", "minimum": 0 },
+        "currency": { "type": "string", "pattern": "^[A-Z]{3}$" }
+      }
+    },
+    "confirmationReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "version",
+        "confirmationId",
+        "handoffId",
+        "permissionDecisionId",
+        "stateRevision",
+        "action",
+        "candidate",
+        "commerceSnapshotRef",
+        "argumentDigest",
+        "issuedAt",
+        "expiresAt",
+        "singleUse"
+      ],
+      "properties": {
+        "kind": { "const": "CommerceConfirmationReceipt" },
+        "version": { "const": "1.0" },
+        "confirmationId": { "$ref": "#/$defs/opaqueRef" },
+        "handoffId": { "$ref": "#/$defs/opaqueRef" },
+        "permissionDecisionId": { "$ref": "#/$defs/opaqueRef" },
+        "stateRevision": { "type": "integer", "minimum": 0 },
+        "action": { "enum": ["request_cart_add", "request_checkout_handoff"] },
+        "candidate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["productRef", "variantRef", "quantity", "unitPrice"],
+          "properties": {
+            "productRef": { "$ref": "product-reference-candidate.schema.json" },
+            "variantRef": { "$ref": "#/$defs/opaqueRef" },
+            "quantity": { "type": "integer", "minimum": 1, "maximum": 100 },
+            "unitPrice": { "$ref": "#/$defs/money" }
+          }
+        },
+        "commerceSnapshotRef": { "$ref": "#/$defs/opaqueRef" },
+        "cartRef": { "$ref": "#/$defs/opaqueRef" },
+        "cartVersion": { "$ref": "#/$defs/opaqueRef" },
+        "argumentDigest": { "$ref": "#/$defs/opaqueRef" },
+        "issuedAt": { "$ref": "#/$defs/timestamp" },
+        "expiresAt": { "$ref": "#/$defs/timestamp" },
+        "singleUse": { "const": true }
+      }
+    },
+    "denied": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "safeReasonCode"],
+      "properties": { "status": { "const": "denied" }, "safeReasonCode": { "$ref": "#/$defs/code" } }
+    },
+    "confirmationRequired": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "receipt"],
+      "properties": { "status": { "const": "confirmation_required" }, "receipt": { "$ref": "#/$defs/confirmationReceipt" } }
+    },
+    "confirmationDeclined": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": { "status": { "const": "confirmation_declined" } }
+    },
+    "confirmationExpired": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": { "status": { "const": "confirmation_expired" } }
+    },
+    "staleState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "expectedRevision"],
+      "properties": { "status": { "const": "stale_state" }, "expectedRevision": { "type": "integer", "minimum": 0 } }
+    },
+    "staleCart": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": { "status": { "const": "stale_cart" }, "currentCartVersion": { "$ref": "#/$defs/opaqueRef" } }
+    },
+    "invalidVariant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "safeReasonCode"],
+      "properties": { "status": { "const": "invalid_variant" }, "safeReasonCode": { "$ref": "#/$defs/code" } }
+    },
+    "invalidQuantity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "safeReasonCode"],
+      "properties": { "status": { "const": "invalid_quantity" }, "safeReasonCode": { "$ref": "#/$defs/code" } }
+    },
+    "priceChanged": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "currentUnitPrice"],
+      "properties": { "status": { "const": "price_changed" }, "currentUnitPrice": { "$ref": "#/$defs/money" } }
+    },
+    "unavailable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "safeReasonCode"],
+      "properties": { "status": { "const": "unavailable" }, "safeReasonCode": { "$ref": "#/$defs/code" } }
+    },
+    "failedBeforeMutation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "safeReasonCode"],
+      "properties": { "status": { "const": "failed_before_mutation" }, "safeReasonCode": { "$ref": "#/$defs/code" } }
+    },
+    "outcomeUnknown": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "mutationRef", "recovery"],
+      "properties": {
+        "status": { "const": "outcome_unknown" },
+        "mutationRef": { "$ref": "#/$defs/opaqueRef" },
+        "recovery": { "const": "reconcile" }
+      }
+    },
+    "succeededAuthoritative": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "mutationRef", "commerceStateRef", "authorityRef", "observedAt"],
+      "properties": {
+        "status": { "const": "succeeded_authoritative" },
+        "mutationRef": { "$ref": "#/$defs/opaqueRef" },
+        "commerceStateRef": { "$ref": "#/$defs/opaqueRef" },
+        "cartVersion": { "$ref": "#/$defs/opaqueRef" },
+        "authorityRef": { "$ref": "#/$defs/opaqueRef" },
+        "observedAt": { "$ref": "#/$defs/timestamp" }
+      }
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:magpie-lab:clarification-question:1.0",
+  "title": "ClarificationQuestion v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "version", "id", "targetPath", "prompt", "reasonCode", "informationGain", "effort", "source", "alreadyKnown"],
+  "properties": {
+    "kind": { "const": "ClarificationQuestion" },
+    "version": { "const": "1.0" },
+    "id": { "type": "string", "minLength": 1 },
+    "targetPath": { "type": "string", "minLength": 1 },
+    "prompt": { "type": "string", "minLength": 1 },
+    "reasonCode": { "type": "string", "minLength": 1 },
+    "informationGain": { "enum": ["blocking", "high", "medium", "low"] },
+    "effort": { "enum": ["low", "medium", "high"] },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "id"],
+      "properties": {
+        "type": { "type": "string", "minLength": 1 },
+        "id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "alreadyKnown": { "type": "boolean" }
+  }
+}

@@ -1,0 +1,179 @@
+{
+  "kind": "SageInterlabProtocolRelease",
+  "protocolVersion": "1.0.0-rc.1",
+  "decisionLogicSourceVersion": "0.4.1-runtime-contracts",
+  "frozenOn": "2026-08-08",
+  "status": "FROZEN_BASELINE_OWNER_CONFORMANCE_PENDING",
+  "releaseMode": "immutable_snapshot",
+  "contractFreeze": true,
+  "productionReady": false,
+  "source": {
+    "lab": "labs/magpie-intent-finder",
+    "branchObserved": "codex/sage-decision-logic-v1",
+    "headObserved": "638e94a44ab282c4ed75844574ad56414203cdac",
+    "worktreeState": "preexisting_uncommitted_changes",
+    "identityRule": "Artifact SHA-256 values, not Git HEAD, identify this release."
+  },
+  "scope": {
+    "includes": [
+      "decision_to_experience_wire_contract",
+      "experience_action_wire_contract",
+      "decision_to_commerce_request_contract",
+      "commerce_result_wire_contract",
+      "commerce_outcome_reduction_contract",
+      "opaque_catalog_product_reference_bridge",
+      "cross_owner_conformance_fixture"
+    ],
+    "excludes": [
+      "catalog_provider_implementation",
+      "ranking_implementation",
+      "experience_document_layout",
+      "shopify_permission_and_mutation_runtime",
+      "cart_and_checkout_ownership",
+      "deployment"
+    ]
+  },
+  "ownership": {
+    "Catalog Kit": [
+      "authoritative product identity",
+      "catalog facts and freshness",
+      "CatalogSearchInput",
+      "SearchResult",
+      "ProviderError",
+      "mapping to ProductReference wire bridge"
+    ],
+    "Magpie": [
+      "IntentProfile",
+      "DecisionQuery",
+      "decision policy and ranking",
+      "DecisionExperienceInput",
+      "CommerceIntentHandoff",
+      "consumption of reduced CommerceOutcomeEvent"
+    ],
+    "Experience": [
+      "ExperienceDocument",
+      "ExperienceActionRequest production",
+      "mapping from DecisionExperienceInput",
+      "shopper-safe projection of CommerceResultEnvelope"
+    ],
+    "Shopify Commerce": [
+      "permission",
+      "confirmation",
+      "fresh commerce revalidation",
+      "idempotence",
+      "mutation",
+      "reconciliation",
+      "authoritative CommerceResultEnvelope"
+    ],
+    "Demo": [
+      "composition and visual proof only"
+    ]
+  },
+  "artifacts": [
+    {
+      "path": "promotion/releases/sage-interlab-protocol/1.0.0-rc.1/schemas/clarification-question.schema.json",
+      "sha256": "52ca9276c86ee8c023c3d453a6d42e23d85571c3b5e47987efdc310e05c89db4",
+      "contract": "ClarificationQuestion",
+      "contractVersion": "1.0",
+      "owner": "Magpie",
+      "normative": true
+    },
+    {
+      "path": "promotion/releases/sage-interlab-protocol/1.0.0-rc.1/schemas/product-reference-candidate.schema.json",
+      "sha256": "0f9cafaf811515a69e9ad8e50493db100ba016eab0e6e2a454e1cc0bbc0098ee",
+      "contract": "ProductReference",
+      "contractVersion": "0.1-wire-bridge",
+      "owner": "Catalog Kit",
+      "normative": true
+    },
+    {
+      "path": "promotion/releases/sage-interlab-protocol/1.0.0-rc.1/schemas/decision-experience-input.schema.json",
+      "sha256": "6f396dbb7eb6529a61461d5c5cca0e4dd83a74c64d771a718aa11f3af475da65",
+      "contract": "DecisionExperienceInput",
+      "contractVersion": "1.0",
+      "owner": "Magpie",
+      "normative": true
+    },
+    {
+      "path": "promotion/releases/sage-interlab-protocol/1.0.0-rc.1/schemas/experience-action-request.schema.json",
+      "sha256": "f7390cd21ea33d14a2cd2e46540bd029b8ec6e695918240da10ce69f921c6a4b",
+      "contract": "ExperienceActionRequest",
+      "contractVersion": "1.0",
+      "owner": "Experience",
+      "normative": true
+    },
+    {
+      "path": "promotion/releases/sage-interlab-protocol/1.0.0-rc.1/schemas/commerce-intent-handoff.schema.json",
+      "sha256": "03647c798a08bd87ba9fbd752289a3b55208c2def3dfa1e8353b40d0227d5232",
+      "contract": "CommerceIntentHandoff",
+      "contractVersion": "1.1",
+      "owner": "Magpie",
+      "normative": true
+    },
+    {
+      "path": "promotion/releases/sage-interlab-protocol/1.0.0-rc.1/schemas/commerce-result-envelope.schema.json",
+      "sha256": "95c35d96396b3ae28a80d387af43f94d9def507b60255f012f20a2d353a6270c",
+      "contract": "CommerceResultEnvelope",
+      "contractVersion": "1.0",
+      "owner": "Shopify Commerce",
+      "normative": true
+    },
+    {
+      "path": "promotion/releases/sage-interlab-protocol/1.0.0-rc.1/schemas/commerce-outcome-event.schema.json",
+      "sha256": "a7e8398253da3b61af7d4c520793025fc19e95cdd7a5b0061c732d005ce8ff4a",
+      "contract": "CommerceOutcomeEvent",
+      "contractVersion": "1.0",
+      "owner": "Magpie",
+      "normative": true
+    },
+    {
+      "path": "promotion/releases/sage-interlab-protocol/1.0.0-rc.1/fixtures/runtime-boundaries.json",
+      "sha256": "3d4cea1d382efbe9428fb426c4ffcb12ce88206aa16cd655ea9f3d4cf02f63ce",
+      "contract": "CrossOwnerConformanceFixture",
+      "contractVersion": "0.4.1",
+      "owner": "Magpie",
+      "normative": true
+    }
+  ],
+  "conformance": {
+    "expectedCases": 45,
+    "expectedPositiveCases": 30,
+    "expectedNegativeCases": 15,
+    "expectedCommerceStatuses": 13,
+    "networkRequired": false,
+    "commerceMutationRequired": false
+  },
+  "adapterChain": [
+    "Catalog Kit -> ProductReference wire bridge",
+    "Magpie -> DecisionExperienceInput",
+    "Experience -> ExperienceDocument and ExperienceActionRequest",
+    "Magpie -> CommerceIntentHandoff",
+    "Shopify Commerce -> CommerceResultEnvelope",
+    "Experience -> shopper projection",
+    "Commerce adapter -> CommerceOutcomeEvent -> Magpie"
+  ],
+  "consumerRules": [
+    "Do not import runtime code from another lab.",
+    "Do not redefine a frozen wire contract inside a consumer lab.",
+    "Use a local adapter when an internal owner model differs.",
+    "Validate inbound and outbound payloads at every owner boundary.",
+    "Do not expose an uncalibrated score to shoppers.",
+    "Do not turn a CommerceIntentHandoff into mutation authority.",
+    "Do not promote the Demo before Catalog, Commerce and Experience conformance passes."
+  ],
+  "changeControl": {
+    "thisVersionIsImmutable": true,
+    "implementationPreferenceCanChangeContract": false,
+    "newVersionRequiredForAnyByteChange": true,
+    "exception": "A demonstrated P0 security, privacy, data-loss or unauthorized-commerce defect may trigger a new release; this release remains unchanged.",
+    "compatibilityPolicy": "Consumers target an exact protocol version and adapt locally."
+  },
+  "readiness": {
+    "wireContractFrozen": true,
+    "catalogOwnerConformant": false,
+    "commerceOwnerConformant": false,
+    "experienceOwnerConformant": false,
+    "demoPromotionAllowed": false,
+    "vercelDeploymentAllowed": false
+  }
+}
